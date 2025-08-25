@@ -2078,21 +2078,18 @@ function full_config(config) {
 
 
 function togglePopup(id, open) {
-  const popup = document.getElementById(id);
-  if (!popup) {
-    console.error(`Popup element with id "${id}" not found.`);
-    return;
-  }
-
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('aria-hidden', open ? 'false' : 'true');
+  el.classList.toggle('show', !!open);
+  // Optional focus management:
   if (open) {
-    popup.style.display = 'flex';
-    setTimeout(() => popup.classList.add('show'), 10); // Smooth fade-in
-  } else {
-    popup.classList.remove('show');
-    popup.style.display = 'none';
+    setTimeout(() => {
+      const f = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (f) f.focus();
+    }, 0);
   }
 }
-
 
 function buildSiteAliases(sa) {
     const siteAliases = {};
@@ -2140,7 +2137,85 @@ function buildSiteAliases(sa) {
     });
 
     return siteAliases;
-} // end buildSiteAliases
+}
+
+/* ========= THEME / ACCENT ========= */
+// Apply accent to CSS variable for live theming
+function applyAccent(hex) {
+  document.documentElement.style.setProperty('--accent', hex);
+  try { localStorage.setItem('ui_accent', hex); } catch(_) {}
+}
+(function initAccent() {
+  const saved = localStorage.getItem('ui_accent');
+  if (saved) applyAccent(saved);
+})();
+colorPicker = document.getElementById('valueColorPicker');
+resetColorBtn = document.getElementById('resetColor');
+if (colorPicker) colorPicker.addEventListener('input', e => applyAccent(e.target.value));
+if (resetColorBtn) resetColorBtn.addEventListener('click', () => {
+  applyAccent('#00ffff'); if (colorPicker) colorPicker.value = '#00ffff';
+});
+
+(function initAccentFromStorage() {
+  try {
+    const saved = localStorage.getItem('ui_accent');
+    if (saved) applyAccent(saved);
+  } catch (_) {}
+})();
+
+// Wire existing color picker if present
+const colorPicker = document.getElementById('valueColorPicker');
+const resetColorBtn = document.getElementById('resetColor');
+if (colorPicker) {
+  colorPicker.addEventListener('input', e => applyAccent(e.target.value));
+}
+if (resetColorBtn) {
+  resetColorBtn.addEventListener('click', () => {
+    applyAccent('#00ffff');
+    if (colorPicker) colorPicker.value = '#00ffff';
+  });
+}
+
+/* ========= PLOT IMAGE FADE-IN ========= */
+function markImageReady(img) {
+  requestAnimationFrame(() => img.classList.add('ready'));
+}
+// Example: whenever you update a plot image src in your code:
+function setPlotSrc(imgId, src) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+  img.classList.remove('ready');
+  img.onload = () => requestAnimationFrame(() => img.classList.add('ready'));
+  img.src = src;
+}
+
+/* Collapsibles: remember open/closed state (optional) */
+document.querySelectorAll('details.collapsible[id]').forEach(d => {
+  const key = 'collapsible_' + d.id;
+  try { d.open = localStorage.getItem(key) !== 'closed'; } catch(_) {}
+  d.addEventListener('toggle', () => {
+    try { localStorage.setItem(key, d.open ? 'open' : 'closed'); } catch(_) {}
+  });
+});
+
+/* ========= COLLAPSIBLE (optional JS API) ========= */
+// Programmatically open/close a <details> panel by id
+function setCollapsible(id, open) {
+  const el = document.getElementById(id);
+  if (el && el.tagName === 'DETAILS') el.open = !!open;
+}
+window.setCollapsible = setCollapsible;
+
+/* ========= “Last UI Update” stamp ========= */
+(function stampUiUpdate() {
+  const el = document.getElementById('lastUiUpdate');
+  if (!el) return;
+  const now = new Date();
+  const fmt = now.toLocaleString(undefined, { year:'numeric', month:'short', day:'2-digit' });
+  el.textContent = fmt;
+})();
+
+// end buildSiteAliases
 
 // function buildSiteAliases(sa) {
 // 
