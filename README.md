@@ -1,4 +1,9 @@
-# This is the boatbod fork of op25.  
+# This is a fork of boatbods fork of OP25. I have improved the web interface.
+
+
+
+
+
 
 Capabilities are broadly categorized into two lists - those supported by the legacy `rx.py` version of the app and those by the newer `multi_rx.py` version.  I recommend using `multi_rx.py` where at all possible as this is the focus of future development.
 
