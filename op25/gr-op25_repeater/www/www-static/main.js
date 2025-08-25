@@ -66,6 +66,7 @@ const MAX_HISTORY_ROWS 		= 10; 	// number of rows to consider "recent" and dupli
 const MAX_HISTORY_SECONDS 	= 5; 	// number of rows to consider "recent" and duplicate by appendCallHistory
 const MAX_TG_CHARS 			= 20;	// max number of characters for talkgroup tags in freq table
 
+const $ = (id) => document.getElementById(id);
 
 const mediaQuery = window.matchMedia("(min-width: 1500px)");
 mediaQuery.addEventListener("change", handleColumnLayoutChange);
@@ -177,31 +178,33 @@ document.addEventListener("DOMContentLoaded", function() {
 	window.addEventListener('keydown', handlePopupClose);
 	
 	function handlePopupClose(event) {
-	  const popupContainers = [
-		{ container: 'popupContainer', content: '.popup-content' },
-		{ container: 'settingsPopupContainer', content: '.settings-popup-content' },
-		{ container: 'aboutPopupContainer', content: '.about-popup-content' }
-	  ];
-	
-	  popupContainers.forEach(({ container, content }) => {
-		const popup = document.getElementById(container);
-		const popupContent = document.querySelector(content);
-	
-		// Handle click outside
-		if (event.type === 'click') {
-		  if (popup && popup.classList.contains('show') && popupContent && !popupContent.contains(event.target)) {
-			togglePopup(container, false);
-		  }
-		}
-	
-		// Handle escape key
-		if (event.type === 'keydown' && event.key === 'Escape') {
-		  if (popup && popup.classList.contains('show')) {
-			togglePopup(container, false);
-		  }
-		}
-	  });
-	}
+    const popupContainers = [
+      { container: 'popupContainer', content: '.popup-content' },
+      { container: 'settingsPopupContainer', content: '.settings-popup-content' },
+      { container: 'aboutPopupContainer', content: '.about-popup-content' }
+    ];
+
+    popupContainers.forEach(({ container, content }) => {
+      const popup = document.getElementById(container);
+      const popupContent = document.querySelector(content);
+      if (!popup || !popup.classList.contains('show')) return;
+
+      // Close on ESC
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        togglePopup(container, false);
+        return;
+      }
+
+      // Close only when clicking the BACKDROP (inside overlay but outside content)
+      if (event.type === 'click') {
+        const clickedInsideOverlay = popup.contains(event.target);
+        const clickedInsideContent = popupContent && popupContent.contains(event.target);
+        if (clickedInsideOverlay && !clickedInsideContent) {
+          togglePopup(container, false);
+        }
+      }
+    });
+  }
 });  // end DOM ready / DOMContentLoaded
 
 
@@ -305,7 +308,7 @@ function rx_update(d) {
 	var plotsCount = d["files"].length;
 	document.getElementById('plotsCount').innerText = plotsCount;
 
-    plotfiles = [];
+    let plotfiles = [];
     
     if ((d["files"] != undefined) && (d["files"].length > 0)) {
         for (var i=0; i < d["files"].length; i++) {
@@ -354,14 +357,15 @@ function rx_update(d) {
 // frequency, system, and talkgroup display
 
 function change_freq(d) {
-
-    c_freq = d['freq'];
-    c_system = d['system'];
-    current_tgid = d['tgid'];
-    c_tag = d['tag'];
-    displayTalkgroup.innerText = c_tag;
-    c_stream_url = d['stream_url'];
-    channel_status();
+  c_freq = d.freq;
+  c_system = d.system;
+  current_tgid = d.tgid;
+  c_tag = d.tag;
+  $('displayTalkgroup').innerText = c_tag || '';
+  applySmartColorToTgidSpan();
+  applyCurrentTgHighlight(current_tgid);
+  c_stream_url = d.stream_url;
+  channel_status();
 }
 
 function channel_update(d) {
@@ -422,6 +426,8 @@ function channel_update(d) {
             capture_active = d[c_id]['capture'];
             hold_tgid = d[c_id]['hold_tgid'];
 
+            applyCurrentTgHighlight(current_tgid);
+
             
         if (hold_tgid != 0) {
             document.getElementById("btn-hold").style.color = "red";
@@ -435,22 +441,22 @@ function channel_update(d) {
             
             c_tdma 							= d[c_id]['tdma'];
             
-            displayChannel.innerText		= c_name;
-            plotChannelDisplay.innerText	= c_name;
-            
-            displaySystem.innerText 		= c_system ? c_system : "-";
-            
-   			displayFreq.innerText 			= (parseInt(c_freq) / 1000000.0).toFixed(6);
-            displayTalkgroup.innerText 		= c_tag ? c_tag : "Talkgroup " + current_tgid;
-            
-            displayTgid.innerText 			= current_tgid ? current_tgid : "-";
-            displaySource.innerText 		= c_srctag ? c_srctag : "ID: " + c_srcaddr;
-            
+            $('displayChannel').innerText      = c_name;
+            $('plotChannelDisplay').innerText  = c_name;
+
+            $('displaySystem').innerText       = c_system ? c_system : "-";
+
+            $('displayFreq').innerText         = (parseInt(c_freq) / 1000000.0).toFixed(6);
+            $('displayTalkgroup').innerText    = c_tag ? c_tag : "Talkgroup " + current_tgid;
+
+            $('displayTgid').innerText               = current_tgid ? current_tgid : "-";
+            $('displaySource').innerText             = c_srctag ? c_srctag : "ID: " + c_srcaddr;
+
             applySmartColorToTgidSpan();
-            
-            if ( displaySource.innerText == "ID: 0")
-            	 displaySource.innerText = " ";
-            	 
+
+            if ( $('displaySource').innerText == "ID: 0")
+            	 $('displaySource').innerText = " ";
+
             displaySourceId.innerText 	= c_srcaddr ? c_srcaddr : "-";
             
 			// Encryption			
@@ -504,6 +510,7 @@ function channel_update(d) {
         channel_status();
 		loadPresets(c_system);
     }
+  applySmartColorToTgidSpan();
 }
 
 function channel_table(d) {
@@ -511,7 +518,7 @@ function channel_table(d) {
 	const channelInfo = document.getElementById("channelInfo");
 	
 	let html = "<table class='compact-table' style='border-collapse: collapse;'>";
-	html += "<tr><th>Ch</th><th>Name</th><th>System</th><th>Frequency</th><th colspan='2' style='width: 140px;'>Talkgroup</th><th>Mode</th><th>Hold</th><th>Capture</th><th>Error</th></tr>";
+	html += "</tbody></table><tr><th>Ch</th><th>Name</th><th>System</th><th>Frequency</th><th colspan='2' style='width: 140px;'>Talkgroup</th><th>Mode</th><th>Hold</th><th>Capture</th><th>Error</th></tr>";
 	
 	for (const ch of d.channels) {
 		const entry = d[ch];
@@ -698,10 +705,10 @@ function adjacent_sites(d) {
         return;
     }
 
-    var html = "<table class='compact-table'";
+    var html = "<table class='compact-table'>";
     html += "<tr><th colspan=99 class='th-section'>Adjacent Sites</th></tr>";
     if (is_p25) {
-        html += "<tr><th>System</th><th>Site Name<th>RFSS</th><th>Site</th><th>Frequency</th><th>Uplink</th></tr>";
+        html += "<tr><th>System</th><th>Site Name</th><th>RFSS</th><th>Site</th><th>Frequency</th><th>Uplink</th></tr>";
         var ct = 0;
         // Ordered by RFSS then site number
         var adjacent_by_rfss = {};
@@ -1114,7 +1121,7 @@ function call_log(d) {
 			const rtag = log.rtag;
 			const rcvr = log.rcvr;
 			const prio = log.prio;
-			const rcvrtag = log.rcvrtag.substring(0, 10) || "";
+			const rcvrtag = (log.rcvrtag || "").substring(0, 10);
 			const freq = (log.freq / 1000000.0).toFixed(6);
 			  var slot = log.slot;
 				
@@ -1138,7 +1145,7 @@ function call_log(d) {
 				<td style="text-align: left;">${displayTtag}</td>
 				<td style="text-align: left;">${displayRtag}</td>
 			`;
-			
+			applyTgRowHighlight(newRow, tgid);
 			tableBody.insertBefore(newRow, tableBody.firstChild);
 			
 		});
@@ -1325,6 +1332,7 @@ function f_cap_button(command) {
 function f_tune_button(command) {
 
 	let step = 0;
+  let _tune = 0;
 	
 	switch (command) {
 	  case "ld": // large down
@@ -1374,7 +1382,7 @@ function f_preset(i) {
 
 	const command = "hold";
 
-	_tgid = preset.tgid;
+	let _tgid = preset.tgid;
 
 	if (isNaN(_tgid) || (_tgid < 0) || (_tgid > 65535))
 		_tgid = 0;
@@ -1542,7 +1550,9 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 		function addRow(tgid, tag, sourceId) {
 				
 			// Only proceed if tgid is defined and its string length > 2
-			if (tgid === undefined || String(tgid).length <= 2) return;
+			if (tgid === undefined || tgid === null) return;
+      const tgs = String(tgid).trim();
+      if (tgs === "" || tgs === "-") return;
 		
 			const tgEntry = tag;
 			const tgName = tgEntry;
@@ -1558,6 +1568,7 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 				<td style="text-align: left;">${tgName}</td>
 				<td style="text-align: left;">${sourceId}</td>
 			`;
+      applyTgRowHighlight(newRow, tgid);
 		
 			tableBody.insertBefore(newRow, tableBody.firstChild);
 		}
@@ -2139,24 +2150,125 @@ function buildSiteAliases(sa) {
     return siteAliases;
 }
 
+/***** TALKGROUP COLORS *****/
+
+const TG_USER_COLORS_KEY = 'tg_user_colors_v1';
+let tgUserColors = {};
+try { tgUserColors = JSON.parse(localStorage.getItem(TG_USER_COLORS_KEY) || '{}'); } catch (_) {}
+
+const tgSessionColors = Object.create(null); // session-only randoms
+
+// Hash string → [0..360) hue (stable per TG)
+function hashHue(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+// Make a nice pastel HSL, then convert to RGB
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+// Returns "R, G, B" string for a TGID (prefers user color, else session random)
+function getTgRgbString(tgid) {
+  // user-set hex?
+  const userHex = tgUserColors[tgid];
+  if (userHex) {
+    const rgb = hexToRgb(userHex);
+    if (rgb) return rgb.join(', ');
+  }
+
+  // session color?
+  if (!tgSessionColors[tgid]) {
+    const h = hashHue(String(tgid));
+    const rgb = hslToRgb(h, 78, 60); // pastel-ish
+    tgSessionColors[tgid] = rgb.join(', ');
+  }
+  return tgSessionColors[tgid];
+}
+
+// Public setters if you want a UI hook for assigning colors
+function setUserTgColor(tgid, hex) {
+  tgUserColors[tgid] = hex;
+  try { localStorage.setItem(TG_USER_COLORS_KEY, JSON.stringify(tgUserColors)); } catch (_) {}
+}
+function clearUserTgColor(tgid) {
+  delete tgUserColors[tgid];
+  try { localStorage.setItem(TG_USER_COLORS_KEY, JSON.stringify(tgUserColors)); } catch (_) {}
+}
+
+// Apply highlight to a call-history row element
+function applyTgRowHighlight(trEl, tgid) {
+  if (!trEl || !tgid) return;
+  trEl.classList.add('tg-row');
+  trEl.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+}
+
+// Apply highlight to the main “current TG” area
+function applyCurrentTgHighlight(tgid) {
+  const mainTable = document.querySelector('#main-display .inner-table');
+  if (!mainTable) return;
+
+  // Add/remove a class on the container
+  const containerCell = mainTable.closest('td'); // the middle cell
+  if (containerCell) {
+    containerCell.classList.add('current-tg');
+    containerCell.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+  }
+
+  // Optional: tint the chip
+  const chip = document.getElementById('currentTgChip');
+  if (chip) chip.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+}
+
+const tgColorId = document.getElementById('tgColorId');
+const tgColorPicker = document.getElementById('tgColorPicker');
+const tgColorSave = document.getElementById('tgColorSave');
+const tgColorClear = document.getElementById('tgColorClear');
+
+if (tgColorSave) tgColorSave.addEventListener('click', () => {
+  const id = tgColorId.value.trim();
+  const hex = tgColorPicker.value;
+  if (id) setUserTgColor(id, hex);
+});
+
+if (tgColorClear) tgColorClear.addEventListener('click', () => {
+  const id = tgColorId.value.trim();
+  if (id) clearUserTgColor(id);
+});
+
+/* ======= HOW TO WIRE THESE IN =======
+1) When your code appends a new row to #callHistoryBody:
+   const tr = document.createElement('tr');
+   // ... fill <td>s as you do now ...
+   applyTgRowHighlight(tr, tgid);
+   callHistoryBody.appendChild(tr);
+
+2) Whenever the “now talking” TG updates (same spot you set #displayTalkgroup / #displayTgid):
+   applyCurrentTgHighlight(tgid);
+
+3) (Optional UI) If you add a color picker in Settings: call setUserTgColor(tgid, '#RRGGBB') or clearUserTgColor(tgid).
+======================================= */
+
+
 /* ========= THEME / ACCENT ========= */
-// Apply accent to CSS variable for live theming
 function applyAccent(hex) {
   document.documentElement.style.setProperty('--accent', hex);
   try { localStorage.setItem('ui_accent', hex); } catch(_) {}
 }
-(function initAccent() {
-  const saved = localStorage.getItem('ui_accent');
-  if (saved) applyAccent(saved);
-})();
-colorPicker = document.getElementById('valueColorPicker');
-resetColorBtn = document.getElementById('resetColor');
-if (colorPicker) colorPicker.addEventListener('input', e => applyAccent(e.target.value));
-if (resetColorBtn) resetColorBtn.addEventListener('click', () => {
-  applyAccent('#00ffff'); if (colorPicker) colorPicker.value = '#00ffff';
-});
 
-(function initAccentFromStorage() {
+(function initAccent() {
   try {
     const saved = localStorage.getItem('ui_accent');
     if (saved) applyAccent(saved);
@@ -2164,17 +2276,14 @@ if (resetColorBtn) resetColorBtn.addEventListener('click', () => {
 })();
 
 // Wire existing color picker if present
-const colorPicker = document.getElementById('valueColorPicker');
-const resetColorBtn = document.getElementById('resetColor');
-if (colorPicker) {
-  colorPicker.addEventListener('input', e => applyAccent(e.target.value));
-}
-if (resetColorBtn) {
-  resetColorBtn.addEventListener('click', () => {
-    applyAccent('#00ffff');
-    if (colorPicker) colorPicker.value = '#00ffff';
-  });
-}
+const uiAccentPicker = document.getElementById('valueColorPicker');
+const uiAccentReset  = document.getElementById('resetColor');
+
+if (uiAccentPicker) uiAccentPicker.addEventListener('input', e => applyAccent(e.target.value));
+if (uiAccentReset)  uiAccentReset.addEventListener('click', () => {
+  applyAccent('#00ffff');
+  if (uiAccentPicker) uiAccentPicker.value = '#00ffff';
+});
 
 /* ========= PLOT IMAGE FADE-IN ========= */
 function markImageReady(img) {

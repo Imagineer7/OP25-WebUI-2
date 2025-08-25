@@ -44,6 +44,45 @@ html[data-theme="dark"], body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ===== Talkgroup highlighting ===== */
+.tg-row {
+  /* we'll set this from JS per row: e.g. "34, 170, 255" */
+  --tg-rgb: 102, 170, 255;
+
+  position: relative;
+  background: rgba(var(--tg-rgb), 0.08);
+  border-left: 3px solid rgba(var(--tg-rgb), 0.8);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tg-rgb), 0.08),
+    inset 0 0 18px rgba(var(--tg-rgb), 0.15);
+  transition: background 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.tg-row:hover {
+  background: rgba(var(--tg-rgb), 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--tg-rgb), 0.12),
+    inset 0 0 22px rgba(var(--tg-rgb), 0.22);
+}
+
+/* Current (now talking) area glow */
+.current-tg {
+  --tg-rgb: 102, 170, 255;
+  box-shadow: 0 0 24px rgba(var(--tg-rgb), 0.25) inset;
+  border-radius: var(--radius);
+}
+.current-tg .info-large,
+.current-tg .trunk-value {
+  text-shadow: 0 0 8px rgba(var(--tg-rgb), 0.45);
+}
+
+/* Little color chip you can show beside TG names (optional) */
+.tg-chip {
+  display:inline-block; width:.85em; height:.85em; border-radius:50%;
+  margin-right:.35em; vertical-align:middle;
+  background: rgb(var(--tg-rgb));
+  box-shadow: 0 0 10px rgba(var(--tg-rgb), .55);
+}
+
 /* Generic cards (wrap your tables/areas in a .card container) */
 .card {
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
@@ -68,6 +107,17 @@ html[data-theme="dark"], body {
 .card .compact-table td,
 .card .compact-table th {
   border-color: rgba(255,255,255,0.06) !important;
+}
+
+#callHistoryContainer .compact-table td:nth-child(2),
+#callHistoryContainer .compact-table td:nth-child(5) {
+  /* likely Sys and Talkgroup name columns */
+  max-width: 12rem;
+}
+#callHistoryContainer .compact-table td:nth-child(2),
+#callHistoryContainer .compact-table td:nth-child(5) {
+  /* truncate with ellipsis */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* Modern section headers */
@@ -152,9 +202,33 @@ html[data-theme="dark"], body {
 .compact-table td, .compact-table th {
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+.outer-table,
+.inner-table,
+.compact-table {
+  table-layout: auto; /* default, but make explicit */
+}
 .compact-table tbody tr:hover {
   background: rgba(255,255,255,0.03);
 }
+
+/* Utilities */
+.text-center  { text-align: center; }
+.text-right   { text-align: right; }
+.nowrap       { white-space: nowrap; }
+.wrap         { white-space: normal; word-break: break-word; }
+.truncate     { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Consistent vertical centering */
+.outer-table th, .outer-table td,
+.inner-table th, .inner-table td,
+.compact-table th, .compact-table td {
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* Slightly smaller padding so more text fits */
+.compact-table th, .compact-table td { padding: 4px 6px; }
+.inner-table td { padding: 4px 6px; }
 
 /* Collapsible sections (CSS-only, with <details>) */
 details.collapsible {
@@ -243,11 +317,12 @@ a:hover {
 
 /* Outer container/table set to 750 wide */
 .outer-table {
-  width: var(--ui-col-width);
+  width: 100%;
   margin: 0px 0px 10px 0px;
   border: 1px solid #444;
   background-color: #111;                               /* 222 */
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 
@@ -371,6 +446,18 @@ input[type="checkbox"]:checked::after {
   border: 1px solid rgba(255,255,255,0.06);
   padding: 3px;
 }
+
+#main-display .inner-table td:first-child { /* big text area */
+  white-space: normal;
+  word-break: break-word;
+}
+#main-display .inner-table td:last-child {  /* numeric side */
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Larger line-height so titles don't look cramped */
+.info-large { line-height: 1.25; }
 
 /* New class for larger, thin font info for System, Talkgroup, and Source */
 .info-large {
@@ -558,6 +645,17 @@ input[type="checkbox"]:checked::after {
 .table-gradient-bg td {
   border-left: none;
   border-right: none;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* polish for horizontal scrollbar area inside cards */
+.card .table-responsive {
+  border-radius: calc(var(--radius) - 2px);
 }
 
 /* NEW: 3D-style button with gradient and reversed hover */

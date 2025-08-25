@@ -28,10 +28,12 @@
       <div class="nav-left">
         <a href="#" class="nav-item" id="btn-home" onclick="showHome();">Home</a>
         <a href="#" class="nav-item" id="btn-plot" onclick="toggleDivById('plot-container', 'btn-plot')">Plot</a>
-        <a href="#" class="nav-item" id="btn-new-settings" onclick="togglePopup('settingsPopupContainer', true);">Settings</a>
+        <a href="#" class="nav-item" id="btn-new-settings"
+           onclick="event.preventDefault(); event.stopPropagation(); togglePopup('settingsPopupContainer', true);">Settings</a>
         <a href="#" class="nav-item" id="btn-config" onclick="localStorage.setItem('getConfigBtn', 1); send_command('get_full_config');">View Config</a>
         <a href="legacy-index.html" class="nav-item" id="btn-legacy">Legacy UI</a>
-        <a href="#" class="nav-item" id="btn-about" onclick="togglePopup('aboutPopupContainer', true);">About</a>
+        <a href="#" class="nav-item" id="btn-about"
+           onclick="event.preventDefault(); event.stopPropagation(); togglePopup('aboutPopupContainer', true);">About</a>
       </div>
       <div class="nav-right" aria-hidden="true">
         <!-- SVG Logo -->
@@ -184,6 +186,13 @@
                   <option value="display">Main Display</option>
                 </select>
               </div>
+              <div style="margin-top: 12px;">
+                <label style="color:#ccc;">Talkgroup Color:</label><br>
+                <input id="tgColorId" type="number" placeholder="TGID" style="width:90px;">
+                <input id="tgColorPicker" type="color" value="#66aaff">
+                <button class="small-button" id="tgColorSave">Save</button>
+                <button class="small-button" id="tgColorClear">Clear</button>
+              </div>
               <div style="margin-bottom:10px;color:#ccc;">Stream URL: <span id="streamURL">None</span></div>
               <hr style="margin:10px 0;">
               <div id="div_debug" style="font-size:0.8em;"><strong>Debug Log</strong></div>
@@ -310,33 +319,39 @@
         </div>
 
         <div class="card">
-          <table class="outer-table" role="presentation">
-            <tr>
-              <td>
-                <div id="frequenciesTable"></div>
-              </td>
-            </tr>
-          </table>
+          <div class="table-responsive">
+            <table class="outer-table" role="presentation">
+              <tr>
+                <td>
+                  <div id="frequenciesTable"></div>
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
 
         <div class="card">
-          <table class="outer-table" id="adjacentSitesContainer" role="presentation">
-            <tr>
-              <td>
-                <div id="adjacentSitesTable"></div>
-              </td>
-            </tr>
-          </table>
+          <div class="table-responsive">
+            <table class="outer-table" id="adjacentSitesContainer" role="presentation">
+              <tr>
+                <td>
+                  <div id="adjacentSitesTable"></div>
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
 
         <div class="card">
-          <table class="outer-table" id="patchesContainer" role="presentation">
-            <tr>
-              <td>
-                <div id="patchesTable"></div>
-              </td>
-            </tr>
-          </table>
+          <div class="table-responsive">
+            <table class="outer-table" id="patchesContainer" role="presentation">
+              <tr>
+                <td>
+                  <div id="patchesTable"></div>
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
       </section>
       <!-- END FIRST COLUMN -->
@@ -344,34 +359,36 @@
       <!-- START SECOND COLUMN -->
       <aside class="column" id="second-column" aria-label="History and plots">
         <div class="card">
-          <table class="outer-table" id="callHistoryContainer" role="presentation">
-            <tr>
-              <th class="th-section" colspan="2" style="padding:0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;">
-                  <span id="callHistoryTableTitle" style="flex:1;text-align:center;">Call History</span>
-                  <button onclick="csvTable()" title="Save Call History to CSV" style="background:none;border:none;cursor:pointer;padding:0;margin-left:auto;">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="0 0 24 24" fill="#ccc" aria-hidden="true">
-                      <path d="M0 0h24v24H0z" fill="none"/>
-                      <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm0 2.5L18.5 7H17V5.5zM5 19V5h10v4h4v10H5z"/>
-                      <path d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
-                    </svg>
-                  </button>
-                </div>
-              </th>
-            </tr>
-            <tr>
-              <td>
-                <div class="call-history-scroll">
-                  <table class="compact-table" id="callHistory" aria-label="Recent calls">
-                    <thead>
-                      <tr><th>Time</th><th>Sys</th><th>Frequency</th><th colspan="2">Talkgroup</th><th>Source</th></tr>
-                    </thead>
-                    <tbody id="callHistoryBody"><!-- Filled by JS --></tbody>
-                  </table>
-                </div>
-              </td>
-            </tr>
-          </table>
+          <div class="table-responsive">
+            <table class="outer-table" id="callHistoryContainer" role="presentation">
+              <tr>
+                <th class="th-section" colspan="2" style="padding:0;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;">
+                    <span id="callHistoryTableTitle" style="flex:1;text-align:center;">Call History</span>
+                    <button onclick="csvTable()" title="Save Call History to CSV" style="background:none;border:none;cursor:pointer;padding:0;margin-left:auto;">
+                      <svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="0 0 24 24" fill="#ccc" aria-hidden="true">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm0 2.5L18.5 7H17V5.5zM5 19V5h10v4h4v10H5z"/>
+                        <path d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <td>
+                  <div class="call-history-scroll">
+                    <table class="compact-table" id="callHistory" aria-label="Recent calls">
+                      <thead>
+                        <tr><th>Time</th><th>Sys</th><th>Frequency</th><th colspan="2">Talkgroup</th><th>Source</th></tr>
+                      </thead>
+                      <tbody id="callHistoryBody"><!-- Filled by JS --></tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
 
         <div class="card" id="plot-card">
