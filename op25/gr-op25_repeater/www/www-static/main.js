@@ -1234,6 +1234,79 @@ function trunk_update(d) {
     
 }  // end trunk_update() - system freqencies table
 
+// ===== Talkgroup Glow State (idle / clear / encrypted) =====
+(function () {
+  //- for inner table only ->// const target = document.querySelector('#main-display .inner-table');
+  const target = document.querySelector('#main-display td.main-info');
+  if (!target) return;
+
+  // ensure the area picks up the nice text glow too
+  target.classList.add('current-tg');
+
+  function setTGState(state) {
+    target.classList.remove('tg-idle', 'tg-clear', 'tg-encrypted');
+    if (state === 'idle')       target.classList.add('tg-idle');
+    else if (state === 'clear') target.classList.add('tg-clear');
+    else if (state === 'encrypted') target.classList.add('tg-encrypted');
+  }
+
+  // Read the current UI text and infer state
+  function computeStateFromDom() {
+    const encEl  = document.getElementById('displayEnc');
+    const tgEl   = document.getElementById('displayTalkgroup');
+    const tgidEl = document.getElementById('displayTgid');
+
+    const encTxt  = (encEl?.textContent || '').trim().toLowerCase();
+    const tgTxt   = (tgEl?.textContent || '').trim();
+    const tgidTxt = (tgidEl?.textContent || '').trim();
+
+    const isEncrypted =
+      encTxt === 'y' || encTxt === 'yes' || encTxt === 'enc' ||
+      encTxt === 'encrypted' || encTxt === 'e' || encTxt === '1';
+
+    const hasActiveTG =
+      (tgTxt && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') ||
+      (tgidTxt && tgidTxt !== '-' && tgidTxt !== '0' && tgidTxt !== '----');
+
+    if (isEncrypted) setTGState('encrypted');
+    else if (hasActiveTG) setTGState('clear');
+    else setTGState('idle');
+  }
+
+  // Observe changes to those fields so the glow follows live updates
+  const encEl  = document.getElementById('displayEnc');
+  const tgEl   = document.getElementById('displayTalkgroup');
+  const tgidEl = document.getElementById('displayTgid');
+
+  const obs = new MutationObserver(computeStateFromDom);
+  [encEl, tgEl, tgidEl].forEach(el => {
+    if (el) obs.observe(el, { childList: true, subtree: true, characterData: true });
+  });
+
+  // Run once at startup and also after each general UI refresh (if do_onload exists)
+  computeStateFromDom();
+  window.addEventListener('DOMContentLoaded', computeStateFromDom);
+})();
+
+function setTGState(state) {
+  const tgBox = document.getElementById("curr-tg");
+  if (!tgBox) return;
+
+  tgBox.classList.remove("tg-idle", "tg-clear", "tg-encrypted");
+
+  switch (state) {
+    case "idle":
+      tgBox.classList.add("tg-idle");
+      break;
+    case "clear":
+      tgBox.classList.add("tg-clear");
+      break;
+    case "encrypted":
+      tgBox.classList.add("tg-encrypted");
+      break;
+  }
+}
+
 
 function plot(d) {
     //TODO: implement local plot rendering using json data
@@ -2594,3 +2667,44 @@ function csvTable() {
     link.click();
     document.body.removeChild(link);
 }
+
+// ---- Simple audio hookup for OP25 stream ----
+const STREAM_URL = "http://192.168.222.125:8000/op25.mp3";
+
+function initAudioPlayer() {
+  const audio = document.getElementById("op25Audio");
+  const btnSlot = document.getElementById("streamButton");
+  const urlLabel = document.getElementById("streamURL");
+
+  if (!audio) return;
+
+  // Set stream URL and UI label
+  audio.src = STREAM_URL;
+  audio.crossOrigin = "anonymous"; // harmless if same-LAN; useful if you later do WebAudio
+  if (urlLabel) urlLabel.textContent = STREAM_URL;
+
+  // Small play/pause button that also satisfies autoplay policies (user gesture)
+  if (btnSlot) {
+    const btn = document.createElement("button");
+    btn.className = "small-button";
+    btn.textContent = "Play";
+    btn.onclick = async () => {
+      try {
+        if (audio.paused) {
+          await audio.play();
+          btn.textContent = "Pause";
+        } else {
+          audio.pause();
+          btn.textContent = "Play";
+        }
+      } catch (e) {
+        console.error("Audio play error:", e);
+      }
+    };
+    btnSlot.appendChild(btn);
+  }
+}
+
+// If you control do_onload(), call it from there; otherwise:
+window.addEventListener("DOMContentLoaded", initAudioPlayer);
+

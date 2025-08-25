@@ -93,6 +93,22 @@ body {
 .current-tg .trunk-value {
   text-shadow: 0 0 8px rgba(var(--tg-rgb), 0.45);
 }
+.current-tg .info-large, .current-tg .trunk-value { text-shadow: 0 0 8px rgba(102,170,255,.45); }
+
+/* Idle = gray glow */
+.tg-idle {
+  box-shadow: inset 0 0 20px #5f53a3 !important;
+}
+
+/* Clear = green glow */
+.tg-clear {
+  box-shadow: inset 0 0 20px #00cc66 !important;
+}
+
+/* Encrypted = red glow */
+.tg-encrypted {
+  box-shadow: inset 0 0 20px #cc0000 !important;
+}
 
 /* Little color chip you can show beside TG names (optional) */
 .tg-chip {
@@ -201,7 +217,7 @@ a, .small-button:hover, .plot-active { color: var(--accent); }
 .top-nav-container {
   position: sticky; top: 0; z-index: 50;
   width: var(--ui-col-width);
-  margin: 0 0 10px 0;
+  margin: 0 auto 10px;
   backdrop-filter: blur(8px);
   background: linear-gradient(180deg, rgba(10,12,18,0.8), rgba(10,12,18,0.35));
   border: 1px solid rgba(255,255,255,0.06);
@@ -221,6 +237,9 @@ a, .small-button:hover, .plot-active { color: var(--accent); }
 .top-nav .nav-item:focus-visible {
   background: rgba(255,255,255,0.08);
 }
+
+.top-nav { justify-content: center; gap: 16px; }
+.nav-right { display: none; } /* hides the logo block if you don’t want it offsetting the layout */
 
 /* Buttons */
 .button-3d, .small-button, .tune-button, #presetButtons button {
