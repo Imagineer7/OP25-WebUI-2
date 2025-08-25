@@ -19,6 +19,15 @@
   --muted: #aab0bd;
   --accent: #00ffff;      /* user-changable (wired to your color picker) */
   --accent-2: #66aaff;
+  --header-bg:#1e1e1e;
+  --header-fg:#e6e6e6;
+  --card-bg:#151515;
+  --card-fg:#dcdcdc;
+  --row-banding:#202020;
+
+  /* TG glow */
+  --tg-glow-px:10px;
+  --tg-glow-style:outline;     /* outline | softfill */
 
   /* Elevation & radii */
   --radius: 12px;
@@ -82,6 +91,49 @@ html[data-theme="dark"], body {
   background: rgb(var(--tg-rgb));
   box-shadow: 0 0 10px rgba(var(--tg-rgb), .55);
 }
+
+.header, .popup-header{
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+.card, .compact-table{
+  background: var(--card-bg);
+  color: var(--card-fg);
+}
+.compact-table tr:nth-child(even){
+  background: var(--row-banding);
+}
+
+/* Accent examples */
+a, .small-button:hover, .plot-active { color: var(--accent); }
+.value, .trunk-value { color: var(--values); }
+
+/* Talkgroup highlight (rows you mark with applyTgRowHighlight) */
+.tg-row{
+  /* we’ll compute the rgb via inline style --tg-rgb */
+  --tg-outline: 0 0 var(--tg-glow-px) rgba(var(--tg-rgb), .85);
+  --tg-fill:    0 0 calc(var(--tg-glow-px) * 0.75) rgba(var(--tg-rgb), .35);
+
+  /* outline vs softfill */
+  box-shadow:
+    0 0 0 transparent,
+    0 0 0 transparent;
+}
+.tg-row[data-glow="outline"]{
+  box-shadow: var(--tg-outline), inset 0 0 0 rgba(0,0,0,0);
+}
+.tg-row[data-glow="softfill"]{
+  box-shadow: var(--tg-fill), inset 0 0 calc(var(--tg-glow-px) * .5) rgba(var(--tg-rgb), .25);
+}
+
+/* Current TG chip/container (if you use applyCurrentTgHighlight) */
+#currentTgChip{
+  --tg-outline: 0 0 var(--tg-glow-px) rgba(var(--tg-rgb), .85);
+  --tg-fill:    0 0 calc(var(--tg-glow-px) * 0.75) rgba(var(--tg-rgb), .35);
+}
+#currentTgChip[data-glow="outline"]{ box-shadow: var(--tg-outline); }
+#currentTgChip[data-glow="softfill"]{ box-shadow: var(--tg-fill); }
+
 
 /* Generic cards (wrap your tables/areas in a .card container) */
 .card {
@@ -870,6 +922,48 @@ input[type="checkbox"]:checked::after {
 }
 
 
+.compact-table th,
+.th-section {
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+
+/* Frequency/Channels/Adjacent tables often use a <th class="th-section"> row */
+.compact-table .th-section {
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+
+/* Row banding across all data tables */
+.compact-table tbody tr:nth-child(even) {
+  background: var(--row-banding);
+}
+
+/* General table text inherits the card text color */
+.compact-table,
+.compact-table td {
+  color: var(--card-fg);
+}
+
+/* Optional: give tables a “card” feel using your card background */
+.compact-table {
+  background: var(--card-bg);
+}
+
+/* If you have any page-level header bar, cover common names */
+.header,           /* if you use this */
+.topbar,           /* or this */
+#top-bar,          /* or this */
+.page-header {     /* or this */
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
+
+/* Keep the popup header using the same variables */
+.popup-header {
+  background: var(--header-bg);
+  color: var(--header-fg);
+}
 
 #aboutPopupContainer {
   display: none;
@@ -907,6 +1001,55 @@ input[type="checkbox"]:checked::after {
   border: 2px solid var(--values); 
   box-shadow: 0 0 3px var(--values), 0 0 7px var(--values);
 }
+
+/* 1) Make all the main “cards” pick up --card-bg */
+#channels-container,
+#adjacentSitesContainer,
+#patchesContainer,
+#frequenciesTable,        /* this is a wrapper DIV in your JS */
+#channelInfo,             /* channels table wrapper */
+#callHistoryWrapper,      /* if you have a wrapper div */
+.config-section,          /* config accordion cards */
+.settings-popup-content { /* settings card itself */
+  background-color: var(--card-bg);
+}
+
+/* 2) Tables: let the table show the card bg, and keep headers/banding */
+.compact-table {
+  background-color: var(--card-bg);
+}
+
+.compact-table th,
+.th-section {
+  background-color: var(--header-bg);
+  color: var(--header-fg);
+}
+
+/* Cells should be transparent so the table/card bg shows through */
+.compact-table td {
+  background-color: transparent;
+  color: var(--card-fg);
+}
+
+/* Row banding uses your var (only on body rows) */
+.compact-table tbody tr { background-color: transparent; }
+.compact-table tbody tr:nth-child(even) {
+  background-color: var(--row-banding);
+}
+
+/* 3) Kill any legacy hardcoded dark backgrounds that hide the var */
+.compact-table,
+#channels-container,
+#adjacentSitesContainer,
+#patchesContainer,
+#frequenciesTable,
+#channelInfo,
+.config-section,
+.settings-popup-content {
+  background: var(--card-bg) !important; /* last resort, wins over old rules */
+}
+
+
 
 
 

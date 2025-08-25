@@ -225,6 +225,161 @@ function find_parent(ele, tagname) {
     return null;
 }
 
+/* ===== Color profile storage/apply ===== */
+const COLOR_STORE_KEY = 'ui_color_profile_v1';
+const DEFAULT_COLORS = {
+  uiAccent: '#00ffff',
+  values:   '#00ffff',
+  headerBg: '#1e1e1e',
+  headerFg: '#e6e6e6',
+  cardBg:   '#151515',
+  cardFg:   '#dcdcdc',
+  bandingColor: '#202020',
+  tgGlowStrength: 10,
+  tgGlowStyle: 'outline'
+};
+
+function loadColorProfile(){
+  try { return JSON.parse(localStorage.getItem(COLOR_STORE_KEY)) || {...DEFAULT_COLORS}; }
+  catch { return {...DEFAULT_COLORS}; }
+}
+function saveColorProfile(p){ try { localStorage.setItem(COLOR_STORE_KEY, JSON.stringify(p)); } catch(_){} }
+
+function applyColorProfile(p){
+  const r = document.documentElement.style;
+  r.setProperty('--accent', p.uiAccent);
+  r.setProperty('--values', p.values || p.uiAccent);
+  r.setProperty('--header-bg', p.headerBg);
+  r.setProperty('--header-fg', p.headerFg);
+  r.setProperty('--card-bg', p.cardBg);
+  r.setProperty('--card-fg', p.cardFg);
+  r.setProperty('--row-banding', p.bandingColor);
+  r.setProperty('--tg-glow-px', `${p.tgGlowStrength || 10}px`);
+
+  // Update glow data-attr on highlighted elements
+  document.querySelectorAll('.tg-row, #currentTgChip').forEach(el=>{
+    el.setAttribute('data-glow', p.tgGlowStyle || 'outline');
+  });
+}
+
+function setAndSaveColor(key, value){
+  const prof = loadColorProfile();
+  prof[key] = value;
+  saveColorProfile(prof);
+  applyColorProfile(prof);
+}
+
+/* ===== Hook up the new controls ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const prof = loadColorProfile();
+  // Seed inputs (if present)
+  const byId = id => document.getElementById(id);
+  const uiAccent = byId('uiAccent');
+  const headerBg = byId('headerBg');
+  const headerFg = byId('headerFg');
+  const cardBg   = byId('cardBg');
+  const cardFg   = byId('cardFg');
+  const banding  = byId('bandingColor');
+  const glowStr  = byId('tgGlowStrength');
+  const glowStrV = byId('tgGlowStrengthValue');
+  const glowSty  = byId('tgGlowStyle');
+
+  if (uiAccent) uiAccent.value = prof.uiAccent;
+  if (headerBg) headerBg.value = prof.headerBg;
+  if (headerFg) headerFg.value = prof.headerFg;
+  if (cardBg)   cardBg.value   = prof.cardBg;
+  if (cardFg)   cardFg.value   = prof.cardFg;
+  if (banding)  banding.value  = prof.bandingColor;
+  if (glowStr){ glowStr.value = prof.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(prof.tgGlowStrength); }
+  if (glowSty)  glowSty.value  = prof.tgGlowStyle;
+
+  // Apply immediately
+  applyColorProfile(prof);
+
+  // Listeners
+  uiAccent && uiAccent.addEventListener('input', e => setAndSaveColor('uiAccent', e.target.value));
+  headerBg && headerBg.addEventListener('input', e => setAndSaveColor('headerBg', e.target.value));
+  headerFg && headerFg.addEventListener('input', e => setAndSaveColor('headerFg', e.target.value));
+  cardBg   && cardBg  .addEventListener('input', e => setAndSaveColor('cardBg', e.target.value));
+  cardFg   && cardFg  .addEventListener('input', e => setAndSaveColor('cardFg', e.target.value));
+  banding  && banding .addEventListener('input', e => setAndSaveColor('bandingColor', e.target.value));
+  glowStr  && glowStr .addEventListener('input', e => {
+    if (glowStrV) glowStrV.textContent = e.target.value;
+    setAndSaveColor('tgGlowStrength', Number(e.target.value));
+  });
+  glowSty  && glowSty .addEventListener('change', e => setAndSaveColor('tgGlowStyle', e.target.value));
+
+  // Export / Import / Reset
+  const exportBtn = byId('exportColorsBtn');
+  const importBtn = byId('importColorsBtn');
+  const importInp = byId('importColorsInput');
+  const resetBtn  = byId('resetColorsBtn');
+
+  exportBtn && exportBtn.addEventListener('click', ()=>{
+    const data = JSON.stringify(loadColorProfile(), null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'op25-color-profile.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 0);
+  });
+
+  importBtn && importBtn.addEventListener('click', ()=> importInp && importInp.click());
+  importInp && importInp.addEventListener('change', ()=>{
+    const f = importInp.files && importInp.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        const merged = {...DEFAULT_COLORS, ...parsed};
+        saveColorProfile(merged);
+        // Re-seed inputs + apply
+        if (uiAccent) uiAccent.value = merged.uiAccent;
+        if (headerBg) headerBg.value = merged.headerBg;
+        if (headerFg) headerFg.value = merged.headerFg;
+        if (cardBg)   cardBg.value   = merged.cardBg;
+        if (cardFg)   cardFg.value   = merged.cardFg;
+        if (banding)  banding.value  = merged.bandingColor;
+        if (glowStr){ glowStr.value  = merged.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(merged.tgGlowStrength); }
+        if (glowSty)  glowSty.value  = merged.tgGlowStyle;
+        applyColorProfile(merged);
+      }catch(err){ console.warn('Invalid color profile JSON', err); }
+      importInp.value = '';
+    };
+    reader.readAsText(f);
+  });
+
+  resetBtn && resetBtn.addEventListener('click', ()=>{
+    saveColorProfile({...DEFAULT_COLORS});
+    applyColorProfile({...DEFAULT_COLORS});
+    if (uiAccent) uiAccent.value = DEFAULT_COLORS.uiAccent;
+    if (headerBg) headerBg.value = DEFAULT_COLORS.headerBg;
+    if (headerFg) headerFg.value = DEFAULT_COLORS.headerFg;
+    if (cardBg)   cardBg.value   = DEFAULT_COLORS.cardBg;
+    if (cardFg)   cardFg.value   = DEFAULT_COLORS.cardFg;
+    if (banding)  banding.value  = DEFAULT_COLORS.bandingColor;
+    if (glowStr){ glowStr.value  = DEFAULT_COLORS.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(DEFAULT_COLORS.tgGlowStrength); }
+    if (glowSty)  glowSty.value  = DEFAULT_COLORS.tgGlowStyle;
+  });
+});
+
+/* Make glow respect the current style whenever you add rows / change current TG */
+function applyTgRowHighlight(trEl, tgid){
+  if (!trEl || !tgid) return;
+  trEl.classList.add('tg-row');
+  trEl.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+  const prof = loadColorProfile();
+  trEl.setAttribute('data-glow', prof.tgGlowStyle || 'outline');
+}
+function applyCurrentTgHighlight(tgid){
+  const chip = document.getElementById('currentTgChip');
+  if (!chip) return;
+  chip.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+  const prof = loadColorProfile();
+  chip.setAttribute('data-glow', prof.tgGlowStyle || 'outline');
+}
 
 // this was from Osmocom config editor, not used here.
 
@@ -518,8 +673,8 @@ function channel_table(d) {
 	const channelInfo = document.getElementById("channelInfo");
 	
 	let html = "<table class='compact-table' style='border-collapse: collapse;'>";
-	html += "</tbody></table><tr><th>Ch</th><th>Name</th><th>System</th><th>Frequency</th><th colspan='2' style='width: 140px;'>Talkgroup</th><th>Mode</th><th>Hold</th><th>Capture</th><th>Error</th></tr>";
-	
+	html += "<tr><th>Ch</th><th>Name</th><th>System</th><th>Frequency</th><th colspan='2' style='width: 140px;'>Talkgroup</th><th>Mode</th><th>Hold</th><th>Capture</th><th>Error</th></tr>";
+
 	for (const ch of d.channels) {
 		const entry = d[ch];
 		if (!entry) continue;
@@ -567,7 +722,7 @@ function channel_table(d) {
 		</tr>`;
 	}
 	
-	html += "</table>";
+	html += "</tbody></table>";
 		
 	channelInfo.innerHTML = html;
 	

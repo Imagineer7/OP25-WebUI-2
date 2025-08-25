@@ -193,6 +193,51 @@
                 <button class="small-button" id="tgColorSave">Save</button>
                 <button class="small-button" id="tgColorClear">Clear</button>
               </div>
+              <!-- ========== Color Customization ========== -->
+              <hr style="margin:12px 0;">
+              <div class="settings-section" style="margin-bottom:10px;">
+                <h3 style="margin:6px 0 8px;">Colors</h3>
+
+                <div class="form-grid" style="display:grid;grid-template-columns: 1fr auto;gap:8px;align-items:center;">
+                  <label for="uiAccent" style="color:#ccc;">UI Accent</label>
+                  <input type="color" id="uiAccent" value="#00ffff" />
+
+                  <label for="headerBg" style="color:#ccc;">Header Background</label>
+                  <input type="color" id="headerBg" value="#1e1e1e" />
+                  <label for="headerFg" style="color:#ccc;">Header Text</label>
+                  <input type="color" id="headerFg" value="#e6e6e6" />
+
+                  <label for="cardBg" style="color:#ccc;">Card Background</label>
+                  <input type="color" id="cardBg" value="#151515" />
+                  <label for="cardFg" style="color:#ccc;">Card Text</label>
+                  <input type="color" id="cardFg" value="#dcdcdc" />
+
+                  <label for="bandingColor" style="color:#ccc;">Row Banding</label>
+                  <input type="color" id="bandingColor" value="#202020" />
+                </div>
+
+                <div class="settings-row" style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+                  <label for="tgGlowStrength" style="color:#ccc;min-width:140px;">Talkgroup Glow</label>
+                  <input type="range" id="tgGlowStrength" min="0" max="24" step="1" value="10" />
+                  <span id="tgGlowStrengthValue" style="min-width:24px;text-align:right;">10</span><span style="color:#aaa;">px</span>
+                </div>
+
+                <div class="settings-row" style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+                  <label for="tgGlowStyle" style="color:#ccc;min-width:140px;">Glow Style</label>
+                  <select id="tgGlowStyle">
+                    <option value="outline">Outline</option>
+                    <option value="softfill">Soft Fill</option>
+                  </select>
+                </div>
+
+                <div class="settings-row" style="gap: 8px; margin-top: 12px; display:flex; flex-wrap:wrap;">
+                  <button id="exportColorsBtn" class="small-button">Export Color Profile</button>
+                  <input id="importColorsInput" type="file" accept="application/json" style="display:none" />
+                  <button id="importColorsBtn" class="small-button">Import Color Profile</button>
+                  <button id="resetColorsBtn" class="small-button danger">Reset to Defaults</button>
+                </div>
+              </div>
+              <!-- ========== /Color Customization ========== -->
               <div style="margin-bottom:10px;color:#ccc;">Stream URL: <span id="streamURL">None</span></div>
               <hr style="margin:10px 0;">
               <div id="div_debug" style="font-size:0.8em;"><strong>Debug Log</strong></div>
