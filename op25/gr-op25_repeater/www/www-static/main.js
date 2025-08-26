@@ -75,20 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	document.getElementById("lastUiUpdate").innerText = lastUpdate;
 	
-    var displaySystem    = document.getElementById("displaySystem");
-    var displayFreq      = document.getElementById("displayFreq");
-
-    var displayTalkgroup = document.getElementById("displayTalkgroup");
-    var displayTgid      = document.getElementById("displayTgid");
-
-    var displaySource    = document.getElementById("displaySource");
-    var displaySourceId  = document.getElementById("displaySourceId");
-
-    var displayEnc       = document.getElementById("displayEnc");
-    var displayEmg       = document.getElementById("displayEmg");    
-    
-    var displayChannel	 = document.getElementById("displayChannel");
-    var displayService	 = document.getElementById("displayService");
+    // Removed unused variable assignments to UI elements.  Use helper function $() instead.
 
 	const heightInput = document.getElementById("callHeightControl");
 	const scrollDiv = document.querySelector(".call-history-scroll");
@@ -596,58 +583,73 @@ function channel_update(d) {
             
             c_tdma 							= d[c_id]['tdma'];
             
-            $('displayChannel').innerText      = c_name;
-            $('plotChannelDisplay').innerText  = c_name;
+            // Update UI fields using helper $() to avoid scope issues
+            $('displayChannel').innerText     = c_name;
+            $('plotChannelDisplay').innerText = c_name;
+            $('displaySystem').innerText      = c_system ? c_system : "-";
+            $('displayFreq').innerText        = (parseInt(c_freq) / 1000000.0).toFixed(6);
+            $('displayTalkgroup').innerText   = c_tag ? c_tag : "Talkgroup " + current_tgid;
+            $('displayTgid').innerText        = current_tgid ? current_tgid : "-";
+            $('displaySource').innerText      = c_srctag ? c_srctag : "ID: " + c_srcaddr;
 
-            $('displaySystem').innerText       = c_system ? c_system : "-";
-
-            $('displayFreq').innerText         = (parseInt(c_freq) / 1000000.0).toFixed(6);
-            $('displayTalkgroup').innerText    = c_tag ? c_tag : "Talkgroup " + current_tgid;
-
-            $('displayTgid').innerText               = current_tgid ? current_tgid : "-";
-            $('displaySource').innerText             = c_srctag ? c_srctag : "ID: " + c_srcaddr;
-
+            // Apply smart colours to the talkgroup display
             applySmartColorToTgidSpan();
 
-            if ( $('displaySource').innerText == "ID: 0")
-            	 $('displaySource').innerText = " ";
+            // Normalize 'ID: 0' to a blank string
+            if ($('displaySource').innerText === "ID: 0") {
+              $('displaySource').innerText = " ";
+            }
 
-            displaySourceId.innerText 	= c_srcaddr ? c_srcaddr : "-";
-            
-			// Encryption			
-			if (!c_encrypted) displayEnc.innerText = "-";
-			
-			if (c_encrypted == 1) {
-			  displayEnc.innerText = "Encrypted";
-			  displayEnc.style.color = "red";
-			  displayTalkgroup.innerHTML += " &nbsp;&nbsp;&nbsp; " + enc_sym;
-			} else {
-			  displayEnc.innerText = "-";
-			  displayEnc.style.color = ""; // fallback to CSS default
-			}
-			
-			if (c_encrypted == 0 && current_tgid != null) {
-			  displayEnc.innerText = "Clear";
-			  displayEnc.style.color = ""; // fallback to CSS default
-			}
-			
-			if (c_encrypted == undefined) displayEnc.innerText = "-";
-			
-			// Emergency
-			if (c_emergency == 1) {
-			  displayEmg.innerText = "EMERGENCY";
-			  displayEmg.style.color = "red";
-			} else {
-			  displayEmg.innerText = "-";
-			  displayEmg.style.color = ""; // fallback to CSS default
-			}
-            
+            // Always set the numeric source ID; blank if undefined
+            $('displaySourceId').innerText = c_srcaddr ? c_srcaddr : "-";
+
+            // Encryption indicator
+            const encEl = $('displayEnc');
+            const tgEl  = $('displayTalkgroup');
+            if (!c_encrypted) {
+              encEl.innerText = "-";
+              encEl.style.color = "";
+            }
+            if (c_encrypted === 1) {
+              encEl.innerText = "Encrypted";
+              encEl.style.color = "red";
+              tgEl.innerHTML += " &nbsp;&nbsp;&nbsp; " + enc_sym;
+            } else if (c_encrypted === 0 && current_tgid != null) {
+              encEl.innerText = "Clear";
+              encEl.style.color = "";
+            }
+            if (typeof c_encrypted === 'undefined') {
+              encEl.innerText = "-";
+            }
+
+            // Emergency indicator
+            const emgEl = $('displayEmg');
+            if (c_emergency === 1) {
+              emgEl.innerText = "EMERGENCY";
+              emgEl.style.color = "red";
+            } else {
+              emgEl.innerText = "-";
+              emgEl.style.color = "";
+            }
+
+            // Service display
             if (c_svcopts == 0) c_svcopts = "-";
-            displayService.innerText = c_svcopts;
-			
-			// send voice display to call history table				
-			if (current_tgid)      
-				appendCallHistory(c_system.substring(0, 5), current_tgid, 0, displayTalkgroup.innerText, 0, displayFreq.innerText, displaySource.innerText, "", "display");
+            $('displayService').innerText = c_svcopts;
+
+            // send voice display to call history table
+            if (current_tgid) {
+              appendCallHistory(
+                c_system.substring(0, 5),
+                current_tgid,
+                0,
+                $('displayTalkgroup').innerText,
+                0,
+                $('displayFreq').innerText,
+                $('displaySource').innerText,
+                "",
+                "display"
+              );
+            }
         }
         else {
 
@@ -2437,28 +2439,8 @@ function clearUserTgColor(tgid) {
 }
 
 // Apply highlight to a call-history row element
-function applyTgRowHighlight(trEl, tgid) {
-  if (!trEl || !tgid) return;
-  trEl.classList.add('tg-row');
-  trEl.style.setProperty('--tg-rgb', getTgRgbString(tgid));
-}
-
-// Apply highlight to the main “current TG” area
-function applyCurrentTgHighlight(tgid) {
-  const mainTable = document.querySelector('#main-display .inner-table');
-  if (!mainTable) return;
-
-  // Add/remove a class on the container
-  const containerCell = mainTable.closest('td'); // the middle cell
-  if (containerCell) {
-    containerCell.classList.add('current-tg');
-    containerCell.style.setProperty('--tg-rgb', getTgRgbString(tgid));
-  }
-
-  // Optional: tint the chip
-  const chip = document.getElementById('currentTgChip');
-  if (chip) chip.style.setProperty('--tg-rgb', getTgRgbString(tgid));
-}
+// NOTE: duplicate definitions of applyTgRowHighlight() and applyCurrentTgHighlight()
+// were removed during refactoring.  See the unified implementations earlier in this file.
 
 const tgColorId = document.getElementById('tgColorId');
 const tgColorPicker = document.getElementById('tgColorPicker');
@@ -2707,4 +2689,3 @@ function initAudioPlayer() {
 
 // If you control do_onload(), call it from there; otherwise:
 window.addEventListener("DOMContentLoaded", initAudioPlayer);
-
