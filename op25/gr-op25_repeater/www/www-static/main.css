@@ -60,7 +60,7 @@ body {
   
   background: 
     linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), /* dark overlay */
-    url("backdrop1.png") no-repeat center center fixed;
+    url("backdrop2.png") no-repeat center center fixed;
   background-size: cover;
   background-attachment: fixed;
   background-color: #000; /* fallback for slow loads */

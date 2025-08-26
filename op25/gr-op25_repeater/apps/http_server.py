@@ -51,7 +51,7 @@ def static_file(environ, start_response):
     suf = filename.split('.')[-1]
     pathname = '../www/www-static'
     if suf in img_types:
-        pathname = '../www/images'
+        pathname = '../www/www-static/images'
     pathname = '%s/%s' % (pathname, filename)
     if suf not in list(content_types.keys()) or '..' in filename or not os.access(pathname, os.R_OK):
         sys.stderr.write('404 %s\n' % pathname)
