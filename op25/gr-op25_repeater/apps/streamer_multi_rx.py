@@ -51,6 +51,7 @@ import json
 import traceback
 import osmosdr
 import importlib
+import shlex, signal, subprocess
 
 from gnuradio import audio, eng_notation, gr, filter, blocks, fft, analog, digital
 from gnuradio.eng_option import eng_option
@@ -78,8 +79,123 @@ import lfsr
 
 os.environ['IMBE'] = 'soft'
 
-_def_symbol_rate = 4800
-_def_capture_file = "capture.bin"
+_DEF_SYMBOL_RATE = 4800
+_DEF_CAPTURE_FILE = "capture.bin"
+
+_ENCODERS = {
+    "mp3":  ("libmp3lame", "audio/mpeg"),
+    "aac":  ("aac",        "audio/aac"),
+    "opus": ("libopus",    "audio/ogg"),
+    "flac": ("flac",       "audio/flac"),
+}
+
+def _detect_pulse_monitor():
+    """Return a pulse/pipewire monitor source name or None."""
+    try:
+        out = subprocess.check_output(["pactl", "list", "short", "sources"],
+                                      stderr=subprocess.DEVNULL, text=True)
+        try:
+            d = subprocess.check_output(["pactl", "get-default-source"],
+                                        stderr=subprocess.DEVNULL, text=True).strip()
+            if d.endswith(".monitor"):
+                return d
+        except Exception:
+            pass
+        mons = [line.split("\t")[1] for line in out.splitlines() if line.endswith(".monitor")]
+        return mons[0] if mons else None
+    except Exception:
+        return None
+
+def _ffmpeg_cmd(opts):
+    acodec, default_ct = _ENCODERS.get(opts.stream_format, ("libmp3lame", "audio/mpeg"))
+    content_type = opts.stream_content_type or default_ct
+    if not opts.stream_url:
+        raise RuntimeError("--stream-url is required for streaming")
+
+    # Input (pulse auto-detect)
+    if opts.stream_device == "pulse":
+        mon = _detect_pulse_monitor()
+        if not mon:
+            raise RuntimeError("Could not detect a Pulse monitor. "
+                               "Try --stream-device with a specific '.monitor' source "
+                               "or use --stream-device alsa")
+        ff_in = ["-f", "pulse", "-i", mon]
+    elif opts.stream_device == "alsa":
+        ff_in = ["-f", "alsa", "-i", "default"]
+    else:
+        # If user passes an explicit pulse monitor, treat as pulse
+        if ".monitor" in opts.stream_device:
+            ff_in = ["-f", "pulse", "-i", opts.stream_device]
+        else:
+            ff_in = ["-i", opts.stream_device]  # advanced use (file/pipe)
+
+    # Output container selection
+    dest = opts.stream_url
+    out_opts = []
+    if dest.startswith("icecast://"):
+        out_opts += ["-content_type", content_type, "-f", opts.stream_format]
+    elif dest.startswith(("tcp://", "udp://", "rtmp://", "rtmps://")):
+        out_opts += ["-f", opts.stream_format]
+    elif dest.startswith("file:"):
+        out_opts += ["-f", opts.stream_format]
+        dest = dest[len("file:"):]
+    else:
+        out_opts += ["-f", opts.stream_format]
+
+    cmd = ["ffmpeg",
+           *ff_in,
+           "-ac", str(opts.stream_channels),
+           "-ar", str(opts.stream_rate),
+           "-c:a", acodec]
+
+    if opts.stream_format in ("mp3", "aac", "opus"):
+        cmd += ["-b:a", opts.stream_bitrate]
+
+    cmd += out_opts
+    cmd += [dest]
+    return cmd
+
+class Streamer:
+    def __init__(self, opts):
+        self.opts = opts
+        self.proc = None
+        self.log_handle = None
+        self._stop = False
+
+    def start(self):
+        if not self.opts.stream_url:
+            return
+        cmd = _ffmpeg_cmd(self.opts)
+        stdout = stderr = None
+        if self.opts.stream_log:
+            self.log_handle = open(self.opts.stream_log, "ab", buffering=0)
+            stdout = self.log_handle
+            stderr = self.log_handle
+        self.proc = subprocess.Popen(
+            cmd, stdout=stdout, stderr=stderr, preexec_fn=os.setsid
+        )
+
+    def stop(self):
+        self._stop = True
+        if self.proc and self.proc.poll() is None:
+            try:
+                os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+                self.proc.wait(timeout=5)
+            except Exception:
+                try:
+                    os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+                except Exception:
+                    pass
+        if self.log_handle:
+            try: self.log_handle.close()
+            except Exception: pass
+
+    def maybe_restart(self):
+        if not self.opts.stream_restart or not self.proc or self._stop:
+            return
+        if self.proc.poll() is not None:
+            time.sleep(1.5)
+            self.start()
 
 # The P25 receiver
 #
@@ -193,7 +309,7 @@ class channel(object):
         self.tdma_state = False
         self.xor_cache = {}
         self.config = config
-        self.symbol_rate = int(from_dict(config, 'symbol_rate', _def_symbol_rate))
+        self.symbol_rate = int(from_dict(config, 'symbol_rate', _DEF_SYMBOL_RATE))
         self.channel_rate = self.symbol_rate
         if dev.args == 'wavsrc':
             self.demod = p25_demodulator.p25_demod_fb(
@@ -303,7 +419,7 @@ class channel(object):
 
     def toggle_capture(self):
         if self.raw_sink is None:   # turn on raw symbol capture
-            sink_file = str(from_dict(self.config, "raw_output", "ch"+str(self.msgq_id)+"-"+_def_capture_file))
+            sink_file = str(from_dict(self.config, "raw_output", "ch"+str(self.msgq_id)+"-"+_DEF_CAPTURE_FILE))
             sys.stderr.write("%s Saving raw symbols to file: %s\n" % (log_ts.get(), sink_file))
             self.tb.lock()
             self.raw_sink = blocks.file_sink(gr.sizeof_char, sink_file)
@@ -930,6 +1046,9 @@ class rx_block (gr.top_block):
                 continue
             meta_s, meta_q = self.meta_streams[s_name]
             params[rx_id]['stream_url'] = meta_s.get_url()
+        # Add direct_stream_url for web UI if streaming info is present
+        if hasattr(self, "streaming") and self.streaming and "url" in self.streaming:
+            params['direct_stream_url'] = self.streaming['url']
         js = json.dumps(params)
         msg = gr.message().make_from_string(js, -4, 0, 0)
         if not self.ui_in_q.full_p():
@@ -966,6 +1085,11 @@ class rx_block (gr.top_block):
 
     def stop(self):
         sys.stderr.write("%s rx_block::stop() flowgraph stop called\n" % log_ts.get())
+        if hasattr(self, "streamer") and self.streamer:
+            try:
+                self.streamer.stop()
+            except Exception:
+                pass
         self.kill()
         gr.top_block.stop(self)
 
@@ -1021,6 +1145,25 @@ class rx_main(object):
         parser.add_option("-v", "--verbosity", type="int", default=0, help="message debug level")
         parser.add_option("-p", "--pause", action="store_true", default=False, help="block on startup")
         parser.add_option("-d", "--dev-mode", action="store_true", default=False, help="enable developer mode")
+        # --- Streaming options ---
+        parser.add_option("--stream-url",       type="string", default=None,
+                          help="Destination, e.g. icecast://source:pass@127.0.0.1:8000/op25.mp3 or file:/tmp/op25.mp3 or tcp://0.0.0.0:8001")
+        parser.add_option("--stream-device",    type="string", default="pulse",
+                          help="Audio input for ffmpeg: 'pulse' (auto-detect monitor), 'alsa' (default capture), or explicit device (e.g. alsa_output...monitor or hw:0,0)")
+        parser.add_option("--stream-format",    type="string", default="mp3",
+                          help="Format: mp3|aac|opus|flac")
+        parser.add_option("--stream-bitrate",   type="string", default="64k",
+                          help="Audio bitrate for lossy codecs (e.g. 64k, 96k)")
+        parser.add_option("--stream-rate",      type="int",    default=22050,
+                          help="Sample rate Hz (e.g. 22050)")
+        parser.add_option("--stream-channels",  type="int",    default=1,
+                          help="Channels (1 or 2)")
+        parser.add_option("--stream-content-type", type="string", default=None,
+                          help="Override content-type header (auto-set for Icecast if omitted)")
+        parser.add_option("--stream-restart",   action="store_true", default=False,
+                          help="Auto-restart ffmpeg if it exits unexpectedly")
+        parser.add_option("--stream-log",       type="string", default=None,
+                          help="Path to write ffmpeg stdout/stderr")
         (options, args) = parser.parse_args()
 
         #if options.dev_mode:
@@ -1051,6 +1194,28 @@ class rx_main(object):
         self.q_watcher = du_queue_watcher(self.tb.ui_out_q, self.process_qmsg)
         sys.stderr.write('python version detected: %s\n' % sys.version)
 
+        self.streamer = None
+        if options.stream_url:
+            try:
+                config.setdefault("streaming", {})
+                config["streaming"].update({
+                    "url": options.stream_url,
+                    "format": options.stream_format,
+                    "rate": options.stream_rate,
+                    "channels": options.stream_channels
+                })
+                # Optionally: propagate to tb for UI
+                self.streamer = Streamer(options)
+                try:
+                    self.streamer.start()
+                    sys.stderr.write("Streaming started: %s\n" % options.stream_url)
+                except Exception as e:
+                    sys.stderr.write("Streaming failed to start: %s\n" % e)
+                self.tb.streaming = config["streaming"]
+                self.tb.streamer = self.streamer
+            except Exception:
+                pass
+
     def process_qmsg(self, msg):
         if msg is None or self.tb.process_qmsg(msg):
             self.tb.stop()
@@ -1064,9 +1229,11 @@ class rx_main(object):
                     time.sleep(1.0)
                     msg = gr.message().make_from_string("watchdog", -2, 0, 0)
                     if not self.tb.ui_out_q.full_p():
-                       self.tb.ui_out_q.insert_tail(msg)
+                        self.tb.ui_out_q.insert_tail(msg)
+                    if self.streamer:
+                        self.streamer.maybe_restart()
             else:
-                self.tb.wait() # curiously wait() matures when a flowgraph gets locked
+                self.tb.wait()
             sys.stderr.write('Flowgraph complete. Exiting\n')
         except (KeyboardInterrupt):
             self.tb.stop()
@@ -1079,6 +1246,9 @@ class rx_main(object):
             self.keep_running = False
             sys.stderr.write('main: exception occurred\n')
             sys.stderr.write('main: exception:\n%s\n' % traceback.format_exc())
+        finally:
+            if getattr(self, "streamer", None):
+                self.streamer.stop()
 
 if __name__ == "__main__":
     if sys.version[0] > '2':
@@ -1086,3 +1256,4 @@ if __name__ == "__main__":
         #sys.stderr = io.TextIOWrapper(sys.stderr.detach().detach(), write_through=True) # disable stderr buffering
     rx = rx_main()
     rx.run()
+
