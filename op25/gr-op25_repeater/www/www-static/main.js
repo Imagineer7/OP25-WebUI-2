@@ -776,14 +776,7 @@ function channel_status() {
     const streamButton = document.getElementById("streamButton");
     const streamURLEl  = document.getElementById("streamURL");
     const url = getPreferredStreamUrl();
-    if (streamButton) {
-      if (url) {
-        const streamHTML = "<a href='" + url + "' target='_blank'>&#128264;</a>";
-        streamButton.innerHTML = streamHTML;
-      } else {
-        streamButton.innerHTML = "";
-      }
-    }
+
     if (streamURLEl) {
       // Display the raw URL text; clickable icon is handled above
       streamURLEl.textContent = url ? url : "None";
@@ -1318,17 +1311,17 @@ function trunk_update(d) {
     const tgidTxt = (tgidEl?.textContent || '').trim();
 
     const isEncrypted =
-      encTxt === 'y' || encTxt === 'yes' || encTxt === 'enc' ||
-      encTxt === 'encrypted' || encTxt === 'e' || encTxt === '1';
+      ['y', 'yes', 'enc', 'encrypted', 'e', '1'].includes(encTxt);
 
     const hasActiveTG =
-      (tgTxt && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') ||
-      (tgidTxt && tgidTxt !== '-' && tgidTxt !== '0' && tgidTxt !== '----');
+      (tgTxt.length > 1 && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') &&
+      (tgidTxt !== '' && tgidTxt !== '0' && tgidTxt !== '----' && !isNaN(Number(tgidTxt)));
 
     if (isEncrypted) setTGState('encrypted');
     else if (hasActiveTG) setTGState('clear');
     else setTGState('idle');
   }
+
 
   // Observe changes to those fields so the glow follows live updates
   const encEl  = document.getElementById('displayEnc');
@@ -2827,27 +2820,36 @@ function saveCustomStreamUrl(url) {
  * or when page loads).
  */
 function refreshStreamUI() {
+  console.log("refreshStreamUI called", new Date().toISOString());
   const audio    = document.getElementById("op25Audio");
   const btnSlot  = document.getElementById("streamButton");
   const urlLabel = document.getElementById("streamURL");
   const url = getPreferredStreamUrl();
 
   if (audio) {
-    // Pause any current playback before switching streams
-    try {
-      audio.pause();
-    } catch (_) {}
-    audio.src = url;
+    const isPlaying = !audio.paused && !audio.ended && audio.readyState > 2;
+    if (!isPlaying) {
+      try { audio.pause(); } catch (_) {}
+      audio.src = url;
+    }
     audio.crossOrigin = "anonymous";
   }
-  // Update the display of the stream URL.  Show just the URL as text for
-  // clarity.  If you prefer clickable icons, you can extend this here.
+
   if (urlLabel) {
     urlLabel.textContent = url;
   }
+
   if (btnSlot) {
-    // Ensure the play/pause button remains in place; do not recreate it here.
-    // Nothing else needed for the button container on refresh.
+    btnSlot.innerHTML = `
+      <button class="small-button" id="audioPlayBtn">▶ Play Audio</button>
+    `;
+
+    const playBtn = document.getElementById("audioPlayBtn");
+    if (playBtn && audio) {
+      playBtn.addEventListener('click', () => {
+        audio.play().catch(err => console.error("Audio play failed:", err));
+      });
+    }
   }
 }
 
@@ -2864,27 +2866,7 @@ function initAudioPlayer() {
   // Create play/pause button once.  This button uses the state of the audio
   // element to toggle between play and pause.  It also satisfies browser
   // autoplay policies by requiring a user gesture to start playback.
-  if (btnSlot && !btnSlot.dataset.initialized) {
-    const btn = document.createElement("button");
-    btn.className = "small-button";
-    btn.textContent = "Play";
-    btn.onclick = async () => {
-      try {
-        if (audio.paused) {
-          await audio.play();
-          btn.textContent = "Pause";
-        } else {
-          audio.pause();
-          btn.textContent = "Play";
-        }
-      } catch (e) {
-        console.error("Audio play error:", e);
-      }
-    };
-    btnSlot.appendChild(btn);
-    // Mark as initialized so we don't re-add the button on refresh
-    btnSlot.dataset.initialized = "true";
-  }
+  //deleted
 
   // Wire up the Save Audio URL button and input fields.  This ensures
   // custom stream URLs entered by the user are persisted and applied.
