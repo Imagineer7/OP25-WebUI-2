@@ -223,7 +223,9 @@ const DEFAULT_COLORS = {
   cardFg:   '#dcdcdc',
   bandingColor: '#202020',
   tgGlowStrength: 10,
-  tgGlowStyle: 'outline'
+  tgGlowStyle: 'outline',
+  // default opacity for cards (1 = fully opaque)
+  cardOpacity: 1
 };
 
 function loadColorProfile(){
@@ -242,6 +244,10 @@ function applyColorProfile(p){
   r.setProperty('--card-fg', p.cardFg);
   r.setProperty('--row-banding', p.bandingColor);
   r.setProperty('--tg-glow-px', `${p.tgGlowStrength || 10}px`);
+
+  // Apply card opacity (bounded between 0.1 and 1)
+  const op = (p.cardOpacity !== undefined ? p.cardOpacity : 1);
+  r.setProperty('--card-opacity', op);
 
   // Update glow data-attr on highlighted elements
   document.querySelectorAll('.tg-row, #currentTgChip').forEach(el=>{
@@ -270,6 +276,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const glowStr  = byId('tgGlowStrength');
   const glowStrV = byId('tgGlowStrengthValue');
   const glowSty  = byId('tgGlowStyle');
+  const cardOpacity = byId('cardOpacityControl');
+  const cardOpacityVal = byId('cardOpacityValue');
 
   if (uiAccent) uiAccent.value = prof.uiAccent;
   if (headerBg) headerBg.value = prof.headerBg;
@@ -279,6 +287,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (banding)  banding.value  = prof.bandingColor;
   if (glowStr){ glowStr.value = prof.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(prof.tgGlowStrength); }
   if (glowSty)  glowSty.value  = prof.tgGlowStyle;
+  if (cardOpacity) {
+    cardOpacity.value = (prof.cardOpacity !== undefined ? prof.cardOpacity : 1);
+    if (cardOpacityVal) cardOpacityVal.textContent = String(prof.cardOpacity !== undefined ? prof.cardOpacity : 1);
+  }
 
   // Apply immediately
   applyColorProfile(prof);
@@ -295,6 +307,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setAndSaveColor('tgGlowStrength', Number(e.target.value));
   });
   glowSty  && glowSty .addEventListener('change', e => setAndSaveColor('tgGlowStyle', e.target.value));
+  cardOpacity && cardOpacity.addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    if (cardOpacityVal) cardOpacityVal.textContent = String(val);
+    setAndSaveColor('cardOpacity', val);
+  });
 
   // Export / Import / Reset
   const exportBtn = byId('exportColorsBtn');
@@ -331,6 +348,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if (banding)  banding.value  = merged.bandingColor;
         if (glowStr){ glowStr.value  = merged.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(merged.tgGlowStrength); }
         if (glowSty)  glowSty.value  = merged.tgGlowStyle;
+        if (cardOpacity) {
+          cardOpacity.value = merged.cardOpacity !== undefined ? merged.cardOpacity : 1;
+          if (cardOpacityVal) cardOpacityVal.textContent = String(merged.cardOpacity !== undefined ? merged.cardOpacity : 1);
+        }
         applyColorProfile(merged);
       }catch(err){ console.warn('Invalid color profile JSON', err); }
       importInp.value = '';
@@ -349,6 +370,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (banding)  banding.value  = DEFAULT_COLORS.bandingColor;
     if (glowStr){ glowStr.value  = DEFAULT_COLORS.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(DEFAULT_COLORS.tgGlowStrength); }
     if (glowSty)  glowSty.value  = DEFAULT_COLORS.tgGlowStyle;
+    if (cardOpacity) {
+      cardOpacity.value = DEFAULT_COLORS.cardOpacity;
+      if (cardOpacityVal) cardOpacityVal.textContent = String(DEFAULT_COLORS.cardOpacity);
+    }
   });
 });
 
@@ -508,6 +533,9 @@ function change_freq(d) {
   applyCurrentTgHighlight(current_tgid);
   c_stream_url = d.stream_url;
   channel_status();
+  // After changing frequency, update the frequency table highlighting and main info glow
+  highlightActiveFrequencyRows();
+  updateMainInfoGlow();
 }
 
 function channel_update(d) {
@@ -665,8 +693,11 @@ function channel_update(d) {
             c_emergency = 0;
         }
         channel_status();
-		loadPresets(c_system);
+    	loadPresets(c_system);
     }
+  // After updating channels, refresh frequency highlights and main info glow
+  highlightActiveFrequencyRows();
+  updateMainInfoGlow();
   applySmartColorToTgidSpan();
 }
 
@@ -738,18 +769,24 @@ function channel_status() {
 
     var html;
     var s2_cap = document.getElementById("cap_bn");
-    
-    // the speaker icon in the main display and the url in the Settings div
-    var streamButton = document.getElementById("streamButton");
-	var streamURL = document.getElementById("streamURL");
-		
-    html = "";
+    // Always refresh the audio player and UI based on preferred stream URL
+    refreshStreamUI();
 
-	// displays the speaker icon when a stream url is present
-    if (c_stream_url != undefined) {
-        var streamHTML = "<a a href='" + c_stream_url + "' target='_blank'>&#128264;</a>";
+    // Set the speaker icon (a clickable link) based on the preferred stream URL.
+    const streamButton = document.getElementById("streamButton");
+    const streamURLEl  = document.getElementById("streamURL");
+    const url = getPreferredStreamUrl();
+    if (streamButton) {
+      if (url) {
+        const streamHTML = "<a href='" + url + "' target='_blank'>&#128264;</a>";
         streamButton.innerHTML = streamHTML;
-        streamURL.innerHTML = streamHTML + " " + c_stream_url    
+      } else {
+        streamButton.innerHTML = "";
+      }
+    }
+    if (streamURLEl) {
+      // Display the raw URL text; clickable icon is handled above
+      streamURLEl.textContent = url ? url : "None";
     }
 
 	// TODO: c_ppm is not displayed anywhere in the new UI. What is it?
@@ -763,6 +800,12 @@ function channel_status() {
         document.getElementById('cap_bn').innerText = "Stop Capture";
     else
         document.getElementById('cap_bn').innerText = "Start Capture";   
+
+    // After updating the channel status, refresh the glow on the main info panel
+    // so that it reflects the current encryption and talkgroup state.  This
+    // directly adjusts classes on the main-info cell rather than relying on
+    // mutation observers (which may not catch programmatic changes).
+    updateMainInfoGlow();
 
 }
 
@@ -1184,7 +1227,14 @@ function trunk_update(d) {
 				appendCallHistory(d[nac]['sysid'], tg1, tg2, tag1, tag2, (parseInt(freq) / 1000000.0).toFixed(6), source1, source2, "frequency");
 			}          
 
-            html += "<tr>";
+            // Insert data-tgids attribute on each frequency row.  This allows
+            // highlightActiveFrequencyRows() to identify which rows belong to
+            // the currently active talkgroup.  The attribute contains a
+            // comma-separated list of TGIDs for the row.
+            var tgAttr = '';
+            if (tg1 != null && tg1 !== "") tgAttr += String(tg1);
+            if (tg2 != null && tg2 !== "" && tg2 !== tg1) tgAttr += (tgAttr ? "," : "") + String(tg2);
+            html += "<tr" + (tgAttr ? " data-tgids='" + tgAttr + "'" : "") + ">";
             html += "<td class='freqData'>" + (parseInt(freq) / 1000000.0).toFixed(6) + "</td>";
 
             html += "<td style=\"text-align:center;\">" + last_activity + "</td>";
@@ -1196,7 +1246,12 @@ function trunk_update(d) {
         
         html += "</table></div>";
 
-		document.getElementById("frequenciesTable").innerHTML = html; 
+        document.getElementById("frequenciesTable").innerHTML = html; 
+
+        // Highlight active frequency rows based on the current talkgroup
+        highlightActiveFrequencyRows();
+        // Update the main info glow (idle/clear/encrypted) after content changes
+        updateMainInfoGlow();
 		
 		
 		if (radioIdFreqTable) {
@@ -1973,6 +2028,68 @@ function getSiteAlias(sysname, rfss, site) {
     }
 }
 
+/* ========= ACTIVE ROW GLOW & MAIN INFO GLOW ========= */
+/**
+ * Highlight rows in the frequency table that correspond to the currently
+ * active talkgroup.  Each <tr> element rendered in the frequency table
+ * should have a data-tgids attribute (comma separated if multiple TGs).
+ * This function removes any previous glow/highlight then reapplies the
+ * appropriate highlight for rows that match the current_tgid.
+ */
+function highlightActiveFrequencyRows() {
+  const rows = document.querySelectorAll('#frequencyTable tr');
+  // Clear previous highlights
+  rows.forEach(row => {
+    row.classList.remove('tg-row');
+    row.removeAttribute('data-glow');
+    row.style.removeProperty('--tg-rgb');
+  });
+  // If no current TGID, nothing further to do
+  if (!current_tgid) return;
+  rows.forEach(row => {
+    const tgidsAttr = row.getAttribute('data-tgids');
+    if (!tgidsAttr) return;
+    const idList = tgidsAttr.split(',').map(s => s.trim()).filter(Boolean);
+    if (idList.includes(String(current_tgid))) {
+      applyTgRowHighlight(row, current_tgid);
+    }
+  });
+}
+
+/**
+ * Update the glow on the main info display area based on current talkgroup
+ * and encryption state.  This mirrors the behaviour of the MutationObserver
+ * defined in the IIFE earlier, but can be called directly after programmatic
+ * updates to the DOM when mutation observers do not fire (e.g. innerHTML
+ * updates).  It reads the contents of displayEnc, displayTalkgroup and
+ * displayTgid and applies tg-idle, tg-clear or tg-encrypted classes to
+ * the main-info cell accordingly.
+ */
+function updateMainInfoGlow() {
+  const target = document.querySelector('#main-display td.main-info');
+  if (!target) return;
+  const encEl  = document.getElementById('displayEnc');
+  const tgEl   = document.getElementById('displayTalkgroup');
+  const tgidEl = document.getElementById('displayTgid');
+  const encTxt  = (encEl?.textContent || '').trim().toLowerCase();
+  const tgTxt   = (tgEl?.textContent || '').trim();
+  const tgidTxt = (tgidEl?.textContent || '').trim();
+  const isEncrypted =
+    encTxt === 'y' || encTxt === 'yes' || encTxt === 'enc' ||
+    encTxt === 'encrypted' || encTxt === 'e' || encTxt === '1';
+  const hasActiveTG =
+    (tgTxt && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') ||
+    (tgidTxt && tgidTxt !== '-' && tgidTxt !== '0' && tgidTxt !== '----');
+  target.classList.remove('tg-idle', 'tg-clear', 'tg-encrypted');
+  if (isEncrypted) {
+    target.classList.add('tg-encrypted');
+  } else if (hasActiveTG) {
+    target.classList.add('tg-clear');
+  } else {
+    target.classList.add('tg-idle');
+  }
+}
+
 
 // function getSiteAlias(sysid, rfss, site) {
 // 
@@ -2419,10 +2536,16 @@ function getTgRgbString(tgid) {
     if (rgb) return rgb.join(', ');
   }
 
-  // session color?
+  // session color?  If not previously assigned, pick a truly random hue
+  // rather than a hash-based pastel.  This ensures greater color variety
+  // across talkgroups on every session.  Once a talkgroup is assigned a
+  // random colour in a session, it is stored in tgSessionColors so that
+  // multiple references to the same talkgroup use the same colour.
   if (!tgSessionColors[tgid]) {
-    const h = hashHue(String(tgid));
-    const rgb = hslToRgb(h, 78, 60); // pastel-ish
+    // Generate a random hue between 0 and 360 degrees.  Saturation and
+    // lightness values are chosen to produce bright, legible colours.
+    const h = Math.floor(Math.random() * 360);
+    const rgb = hslToRgb(h, 78, 60);
     tgSessionColors[tgid] = rgb.join(', ');
   }
   return tgSessionColors[tgid];
@@ -2651,22 +2774,97 @@ function csvTable() {
 }
 
 // ---- Simple audio hookup for OP25 stream ----
-const STREAM_URL = "http://192.168.222.125:8000/op25.mp3";
+// Default stream URL used when the user has not specified a custom stream.
+// A custom stream can be set via the Settings panel.  See DEFAULT_STREAM_URL
+// for the base value and CUSTOM_STREAM_KEY for localStorage key.
+const DEFAULT_STREAM_URL = "http://192.168.222.125:8000/op25.mp3";
+
+// Key used in localStorage for persisting the user's custom audio stream URL.
+const CUSTOM_STREAM_KEY = "customStreamUrl";
+
+/**
+ * Returns the preferred stream URL.  If the user has set a custom URL in
+ * settings, that value will be used.  Otherwise this falls back to
+ * DEFAULT_STREAM_URL.  The return value is always a non-empty string.
+ */
+function getPreferredStreamUrl() {
+  try {
+    const saved = localStorage.getItem(CUSTOM_STREAM_KEY);
+    if (saved && saved.trim() !== "") {
+      return saved.trim();
+    }
+  } catch (_) {
+    // ignore JSON/localStorage errors
+  }
+  return DEFAULT_STREAM_URL;
+}
+
+/**
+ * Saves a custom stream URL to localStorage.  If url is falsy, any custom URL
+ * will be removed.  After saving, the audio player and UI will be refreshed
+ * to reflect the new value.
+ *
+ * @param {string} url  The URL to save.  May be an empty string to clear.
+ */
+function saveCustomStreamUrl(url) {
+  try {
+    if (url && url.trim() !== "") {
+      localStorage.setItem(CUSTOM_STREAM_KEY, url.trim());
+    } else {
+      localStorage.removeItem(CUSTOM_STREAM_KEY);
+    }
+  } catch (_) {
+    // ignore localStorage errors
+  }
+  // Update the audio player and UI after saving
+  refreshStreamUI();
+}
+
+/**
+ * Refreshes the audio player and associated UI (streamButton and streamURL)
+ * based on the current preferred stream URL.  This should be called
+ * whenever the underlying URL changes (e.g. after saving a new custom URL
+ * or when page loads).
+ */
+function refreshStreamUI() {
+  const audio    = document.getElementById("op25Audio");
+  const btnSlot  = document.getElementById("streamButton");
+  const urlLabel = document.getElementById("streamURL");
+  const url = getPreferredStreamUrl();
+
+  if (audio) {
+    // Pause any current playback before switching streams
+    try {
+      audio.pause();
+    } catch (_) {}
+    audio.src = url;
+    audio.crossOrigin = "anonymous";
+  }
+  // Update the display of the stream URL.  Show just the URL as text for
+  // clarity.  If you prefer clickable icons, you can extend this here.
+  if (urlLabel) {
+    urlLabel.textContent = url;
+  }
+  if (btnSlot) {
+    // Ensure the play/pause button remains in place; do not recreate it here.
+    // Nothing else needed for the button container on refresh.
+  }
+}
 
 function initAudioPlayer() {
-  const audio = document.getElementById("op25Audio");
+  const audio   = document.getElementById("op25Audio");
   const btnSlot = document.getElementById("streamButton");
   const urlLabel = document.getElementById("streamURL");
 
   if (!audio) return;
 
-  // Set stream URL and UI label
-  audio.src = STREAM_URL;
-  audio.crossOrigin = "anonymous"; // harmless if same-LAN; useful if you later do WebAudio
-  if (urlLabel) urlLabel.textContent = STREAM_URL;
+  // Initialize stream URL and labels
+  refreshStreamUI();
 
-  // Small play/pause button that also satisfies autoplay policies (user gesture)
-  if (btnSlot) {
+  // Create play/pause button once.  This button uses the state of the audio
+  // element to toggle between play and pause.  It also satisfies browser
+  // autoplay policies by requiring a user gesture to start playback.
+  if (btnSlot && !btnSlot.dataset.initialized) {
     const btn = document.createElement("button");
     btn.className = "small-button";
     btn.textContent = "Play";
@@ -2684,8 +2882,23 @@ function initAudioPlayer() {
       }
     };
     btnSlot.appendChild(btn);
+    // Mark as initialized so we don't re-add the button on refresh
+    btnSlot.dataset.initialized = "true";
+  }
+
+  // Wire up the Save Audio URL button and input fields.  This ensures
+  // custom stream URLs entered by the user are persisted and applied.
+  const saveBtn = document.getElementById('saveStreamUrlBtn');
+  const inputField = document.getElementById('customStreamUrlInput');
+  if (saveBtn && inputField && !saveBtn.dataset.wired) {
+    saveBtn.addEventListener('click', () => {
+      const val = inputField.value.trim();
+      saveCustomStreamUrl(val);
+    });
+    // Prevent multiple wiring
+    saveBtn.dataset.wired = 'true';
   }
 }
 
-// If you control do_onload(), call it from there; otherwise:
+// Initialize audio player after the DOM has loaded
 window.addEventListener("DOMContentLoaded", initAudioPlayer);

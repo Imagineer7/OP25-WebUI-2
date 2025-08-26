@@ -25,6 +25,9 @@
   --card-fg:#dcdcdc;
   --row-banding:#202020;
 
+  /* Card opacity: allows global transparency control for cards */
+  --card-opacity: 1;
+
   /* TG glow */
   --tg-glow-px:10px;
   --tg-glow-style:outline;     /* outline | softfill */
@@ -169,6 +172,8 @@ a, .small-button:hover, .plot-active { color: var(--accent); }
   box-shadow: var(--shadow-1);
   overflow: clip; /* nicer rounded corners for inner children */
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  /* Apply custom opacity for all cards */
+  opacity: var(--card-opacity);
 }
 .card:hover {
   transform: translateY(-1px);
