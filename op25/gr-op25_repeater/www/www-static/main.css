@@ -59,7 +59,7 @@ html[data-theme="dark"], body {
 body {
   
   background: 
-    linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), /* dark overlay */
+    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0,0,0,0.3)), /* dark overlay */
     url("backdrop2.png") no-repeat center center fixed;
   background-size: cover;
   background-attachment: fixed;

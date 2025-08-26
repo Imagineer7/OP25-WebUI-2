@@ -631,6 +631,8 @@ function channel_update(d) {
             // Always set the numeric source ID; blank if undefined
             $('displaySourceId').innerText = c_srcaddr ? c_srcaddr : "-";
 
+            console.log("channel_update displaySource debug:", { c_srctag, c_srcaddr, displaySource: $('displaySource').innerText });
+
             // Encryption indicator
             const encEl = $('displayEnc');
             const tgEl  = $('displayTalkgroup');
@@ -1141,6 +1143,8 @@ function trunk_update(d) {
 					? `ID: ${src2}`
 					: null;
 
+      console.log("trunk_update source1/source2 debug:", { src1, srctag1, source1, src2, srctag2, source2 });
+      
 			dispSrc1 = (source1 == null) ? "-" : source1;
 			dispSrc2 = (source2 == null) ? "-" : source2;
 			
@@ -1765,6 +1769,10 @@ function extractLastNumber(str) {
 
 function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource) {
 
+  console.log("appendCallHistory called with:", {
+      sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource
+  });
+  console.log("appendCallHistory sourceId1/sourceId2:", { sourceId1, sourceId2 });
 	// dataSource is one of 'frequency' or 'voice' 
 
 	// appends the call history table only when the current call is not already there
@@ -1816,6 +1824,7 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 					const delta = Math.abs(nowSec - rowEpochSec);
 		
 					if (delta <= MAX_HISTORY_SECONDS) {
+            console.log("Duplicate call history row skipped:", { tgid, sourceId, rowTime });
 						return true;
 					}
 				}
@@ -1828,9 +1837,17 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 		function addRow(tgid, tag, sourceId) {
 				
 			// Only proceed if tgid is defined and its string length > 2
-			if (tgid === undefined || tgid === null) return;
-      const tgs = String(tgid).trim();
-      if (tgs === "" || tgs === "-") return;
+			if (tgid === undefined || tgid === null) {
+				console.log("Skipped addRow: tgid undefined or null", { tgid, tag, sourceId });
+				return;
+			}
+			const tgs = String(tgid).trim();
+			if (tgs === "" || tgs === "-") {
+				console.log("Skipped addRow: tgid empty or '-'", { tgid, tag, sourceId });
+				return;
+			}
+
+      console.log("Adding call history row:", { tgid, tag, sourceId });
 		
 			const tgEntry = tag;
 			const tgName = tgEntry;
@@ -1851,19 +1868,18 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 			tableBody.insertBefore(newRow, tableBody.firstChild);
 		}
 
-    // Process single or both entries, don't log entries where source id is not present.
-	if (tg1 !== undefined) {
-		if (!isDuplicate(tg1, sourceId1) && sourceId1) {
-			addRow(tg1, tag1, sourceId1);
-		}
-	}
-	
-	if (tg2 !== undefined && tg2 !== tg1) {
-		if (!isDuplicate(tg2, sourceId2) && sourceId2) {
-			addRow(tg2, tag2, sourceId2);
-		}
-	}
-	
+  // Process single or both entries, don't log entries where source id is not present.
+  if (tg1 !== undefined) {
+      if (!isDuplicate(tg1, sourceId1)) {
+          addRow(tg1, tag1, sourceId1);
+      }
+  }
+  if (tg2 !== undefined && tg2 !== tg1) {
+      if (!isDuplicate(tg2, sourceId2)) {
+          addRow(tg2, tag2, sourceId2);
+      }
+  }
+
 	applySmartColorsToCallHistory();
 	
 	const table = document.getElementById("callHistoryContainer");
@@ -1876,6 +1892,12 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
 	}
 } // end appendCallHistory()
 
+function brightenRgb(rgbStr, amount = 30) {
+  // rgbStr: "R, G, B"
+  let rgb = rgbStr.split(',').map(x => parseInt(x.trim(), 10));
+  rgb = rgb.map(v => Math.min(255, v + amount));
+  return rgb.join(', ');
+}
 
 function applySmartColorsToChannels() {
   if (!document.getElementById("smartColorToggle").checked) return;
@@ -1906,43 +1928,34 @@ function applySmartColorsToChannels() {
   });
 } // end applySmartColorsToChannels
 
-
 function applySmartColorsToCallHistory() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-  
   const rows = document.querySelectorAll("#callHistoryBody tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
-    if (cells.length < 5) return;
+    if (cells.length < 6) return;
 
+    // Use the TGID from the table (column 3)
     const tgidCell = cells[3];
-    const sourceCell = cells[4];
-    const sourceIdCell = cells[5];
-    
-    const cellText = sourceCell.textContent.toLowerCase();
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
 
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        tgidCell.style.color = colorGroup.color;
-        sourceCell.style.color = colorGroup.color;
-        sourceIdCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      tgidCell.style.color = "";
-      sourceCell.style.color = "";
-      sourceIdCell.style.color = "";
+    // Get the RGB string for this TGID (user color or session color)
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20); // adjust amount for brightness
+      // Apply to all cells in the row
+      cells.forEach(cell => {
+        cell.style.color = `rgb(${brightRgb})`;
+      });
+    } else {
+      // Reset color if no TG color
+      cells.forEach(cell => {
+        cell.style.color = "";
+      });
     }
   });
-} // end applySmartColorsToCallHistory
-
+}
 
 function applySmartColorsToFrequencyTable() {
   if (!document.getElementById("smartColorToggle").checked) return;
@@ -2566,12 +2579,22 @@ const tgColorClear = document.getElementById('tgColorClear');
 if (tgColorSave) tgColorSave.addEventListener('click', () => {
   const id = tgColorId.value.trim();
   const hex = tgColorPicker.value;
-  if (id) setUserTgColor(id, hex);
+  if (id) {
+    setUserTgColor(id, hex);
+    applySmartColorsToCallHistory();
+    applySmartColorsToFrequencyTable();
+    applySmartColorsToChannels();
+  }
 });
 
 if (tgColorClear) tgColorClear.addEventListener('click', () => {
   const id = tgColorId.value.trim();
-  if (id) clearUserTgColor(id);
+  if (id) {
+    clearUserTgColor(id);
+    applySmartColorsToCallHistory();
+    applySmartColorsToFrequencyTable();
+    applySmartColorsToChannels();
+  }
 });
 
 /* ======= HOW TO WIRE THESE IN =======
@@ -2820,7 +2843,7 @@ function saveCustomStreamUrl(url) {
  * or when page loads).
  */
 function refreshStreamUI() {
-  console.log("refreshStreamUI called", new Date().toISOString());
+  //console.log("refreshStreamUI called", new Date().toISOString());
   const audio    = document.getElementById("op25Audio");
   const btnSlot  = document.getElementById("streamButton");
   const urlLabel = document.getElementById("streamURL");
