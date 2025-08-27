@@ -4,6 +4,13 @@ I’ve improved the web interface and added a **audio streaming** feature in a n
 ---
 
 ## Quick start (Debian/Ubuntu/Raspberry Pi OS)
+#- NOTE - If you already have op25 installed.
+Then you only need to update your web server files for op25 which are under /op25/gr-op25_repeater/www/www-static
+If you want the updated webpage then just replace your index.html, main.css, and main.js files with the ones from
+this respritory. Also if you want the background images copy them from /op25/gr-op25_repeater/www/www-static/images
+in this respirtory to the same directory on your machine. You will need to also update the http_server.py in order
+to get the background images to load. The updated http_server.py file is under /op25/gr-op25_repeater/apps. Replace
+it just like all previous files.
 
 # Base install (builds OP25 like before)
 ./install.sh -f
