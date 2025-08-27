@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Public Scanner (Read-only)</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; media-src *; connect-src 'self'; style-src 'self' 'unsafe-inline';">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Live Scanner</h1>
+    <div id="netDot" class="dot"></div>
+  </header>
+
+  <main class="grid">
+    <section class="card now">
+      <h2>Now Talking</h2>
+      <div class="now-flex">
+        <div class="kv">
+          <div><span class="k">Talkgroup</span><span class="v" id="nowTg">—</span></div>
+          <div><span class="k">Name</span><span class="v" id="nowName">—</span></div>
+          <div><span class="k">Freq</span><span class="v" id="nowFreq">—</span></div>
+          <div><span class="k">Source</span><span class="v" id="nowSrc">—</span></div>
+          <div><span class="k">Enc</span><span class="v" id="nowEnc">—</span></div>
+        </div>
+        <div class="audio">
+          <audio id="audio" controls preload="none"></audio>
+          <div class="muted">Read-only • No controls to OP25</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row between">
+        <h2>Recent Activity</h2>
+        <button id="dlCsv" class="btn">Download CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead>
+            <tr><th>Time</th><th>Freq</th><th>TGID</th><th>Name</th><th>Source</th><th>Enc</th></tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Public read-only view</footer>
+
+  <script>window.ROCFG={ mountHint: "" };</script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
