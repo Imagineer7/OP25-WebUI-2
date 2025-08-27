@@ -1,6 +1,7 @@
 # This is a fork of boatbods fork of OP25
 I’ve improved the web interface and added a **audio streaming** feature in a new file `streamer_multi_rx.py`. Users can enable streaming with simple flags (no hand-crafted `ffmpeg` services required). The installer can optionally set up all streaming dependencies (FFmpeg, Pulse/PipeWire utils, Icecast2) and a systemd unit.
-
+#Sample of the new web interface.
+![New webpage layout for op25](https://github.com/Imagineer7/OP25-WebUI-2/blob/master/2025-08-26_17-06.png)
 ---
 
 ## Quick start (Debian/Ubuntu/Raspberry Pi OS)
