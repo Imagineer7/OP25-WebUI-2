@@ -5,14 +5,85 @@ I’ve improved the web interface and added a **audio streaming** feature in a n
 ![New webpage layout for op25](https://github.com/Imagineer7/OP25-WebUI-2/blob/master/2025-08-26_17-06.png)
 ---
 
+## 📌 Note: If you already have OP25 installed
+
+You do **not** need to reinstall the entire project. To update to the latest web interface, follow these steps:
+
+1. **Get the Updated Files**
+   You can either:
+
+   * **Clone this repository**:
+
+     ```bash
+     git clone https://github.com/your-username/op25.git
+     ```
+   * **Or download individual files** directly from the repository page.
+
+2. **Update Web Files**
+   Replace the following files in your OP25 installation directory:
+
+   * `index.html`
+   * `main.css`
+   * `main.js`
+
+   Example (local copy):
+
+   ```bash
+   cp /path/to/cloned/op25/gr-op25_repeater/www/www-static/index.html \
+      /op25/gr-op25_repeater/www/www-static/
+
+   cp /path/to/cloned/op25/gr-op25_repeater/www/www-static/main.css \
+      /op25/gr-op25_repeater/www/www-static/
+
+   cp /path/to/cloned/op25/gr-op25_repeater/www/www-static/main.js \
+      /op25/gr-op25_repeater/www/www-static/
+   ```
+
+   Example (remote server via `scp`):
+
+   ```bash
+   scp /path/to/cloned/op25/gr-op25_repeater/www/www-static/index.html \
+       user@remote-server:/op25/gr-op25_repeater/www/www-static/
+
+   scp /path/to/cloned/op25/gr-op25_repeater/www/www-static/main.css \
+       user@remote-server:/op25/gr-op25_repeater/www/www-static/
+
+   scp /path/to/cloned/op25/gr-op25_repeater/www/www-static/main.js \
+       user@remote-server:/op25/gr-op25_repeater/www/www-static/
+   ```
+
+3. **Update Background Images (Optional)**
+   If you want the updated background images, copy them as well:
+
+   ```bash
+   cp /path/to/cloned/op25/gr-op25_repeater/www/www-static/images/* \
+      /op25/gr-op25_repeater/www/www-static/images/
+   ```
+
+   Or with `scp`:
+
+   ```bash
+   scp /path/to/cloned/op25/gr-op25_repeater/www/www-static/images/* \
+       user@remote-server:/op25/gr-op25_repeater/www/www-static/images/
+   ```
+
+4. **Update the HTTP Server**
+   To enable background images, update `http_server.py`:
+
+   ```bash
+   cp /path/to/cloned/op25/gr-op25_repeater/apps/http_server.py \
+      /op25/gr-op25_repeater/apps/
+   ```
+
+   Or with `scp`:
+
+   ```bash
+   scp /path/to/cloned/op25/gr-op25_repeater/apps/http_server.py \
+       user@remote-server:/op25/gr-op25_repeater/apps/
+   ```
+
+
 ## Quick start (Debian/Ubuntu/Raspberry Pi OS)
-#- NOTE - If you already have op25 installed.
-Then you only need to update your web server files for op25 which are under /op25/gr-op25_repeater/www/www-static. 
-If you want the updated webpage then just replace your index.html, main.css, and main.js files with the ones from
-this respritory. Also if you want the background images copy them from /op25/gr-op25_repeater/www/www-static/images
-in this respirtory to the same directory on your machine. You will need to also update the http_server.py in order
-to get the background images to load. The updated http_server.py file is under /op25/gr-op25_repeater/apps. Replace
-it just like all previous files.
 
 # Base install (builds OP25 like before)
 ./install.sh -f
