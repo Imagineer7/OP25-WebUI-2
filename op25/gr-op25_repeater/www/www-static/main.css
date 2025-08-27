@@ -27,6 +27,9 @@
 
   /* Card opacity: allows global transparency control for cards */
   --card-opacity: 1;
+  --card-bg-alpha: 1; /* default fully opaque */
+  --card-bg-rgb: 21, 21, 21;
+  --card-bg-alpha: 1;
 
   /* TG glow */
   --tg-glow-px:10px;
@@ -48,22 +51,28 @@
   --ui-col-width: min(1200px, 96vw);
 }
 
-/* Dark background + global smoothing */
-html[data-theme="dark"], body {
-  background: radial-gradient(1200px 600px at 25% -10%, #151b27 0%, var(--bg) 45%) fixed;
+body {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0,0,0,0.3)), /* dark overlay */
+    url("backdrop6.png") no-repeat center center fixed,
+    radial-gradient(1200px 600px at 25% -10%, #151b27 0%, var(--bg) 45%) fixed;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: center center, center center, center center;
+  background-size: cover, cover, cover;
+  background-attachment: fixed, fixed, fixed;
+  background-color: #000; /* fallback for very old browsers */
   color: var(--text);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  margin: 0 0 10px 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-body {
-  
-  background: 
-    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0,0,0,0.3)), /* dark overlay */
-    url("backdrop2.png") no-repeat center center fixed;
-  background-size: cover;
-  background-attachment: fixed;
-  background-color: #000; /* fallback for slow loads */
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* ===== Talkgroup highlighting ===== */
@@ -125,10 +134,15 @@ body {
   background: var(--header-bg);
   color: var(--header-fg);
 }
-.card, .compact-table{
-  background: var(--card-bg);
+.card, .compact-table {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--card-bg-rgb), var(--card-bg-alpha)) 0%,
+    rgba(var(--card-bg-rgb), var(--card-bg-alpha)) 100%
+  );
   color: var(--card-fg);
 }
+
 .compact-table tr:nth-child(even){
   background: var(--row-banding);
 }
@@ -166,14 +180,11 @@ a, .small-button:hover, .plot-active { color: var(--accent); }
 
 /* Generic cards (wrap your tables/areas in a .card container) */
 .card {
-  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius);
   box-shadow: var(--shadow-1);
   overflow: clip; /* nicer rounded corners for inner children */
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
-  /* Apply custom opacity for all cards */
-  opacity: var(--card-opacity);
 }
 .card:hover {
   transform: translateY(-1px);
@@ -377,7 +388,7 @@ body {
   background-color: #111;
   color: #E0E0E0;
   font-family: Arial, Helvetica, sans-serif;
-  margin: 5px 5px 20px 20px;
+  margin: 0 0 10px 0;
   padding: 0;
 }
 

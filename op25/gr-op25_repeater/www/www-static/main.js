@@ -89,7 +89,8 @@ document.addEventListener("DOMContentLoaded", function() {
 	});
 	}
 	    	
-	loadSettingsFromLocalStorage();	
+	loadSettingsFromLocalStorage();
+  restoreCallHistoryFromLocalStorage();	
 	
 	const sizeInput = document.getElementById("plotSizeControl");
   
@@ -246,8 +247,12 @@ function applyColorProfile(p){
   r.setProperty('--tg-glow-px', `${p.tgGlowStrength || 10}px`);
 
   // Apply card opacity (bounded between 0.1 and 1)
-  const op = (p.cardOpacity !== undefined ? p.cardOpacity : 1);
-  r.setProperty('--card-opacity', op);
+  const op = Math.max(0.1, Math.min(1, p.cardOpacity !== undefined ? p.cardOpacity : 1));
+  r.setProperty('--card-bg-alpha', op);
+
+  const rgb = hexToRgb(p.cardBg);
+  if (rgb) r.setProperty('--card-bg-rgb', rgb.join(', '));
+  r.setProperty('--card-bg-alpha', p.cardOpacity !== undefined ? p.cardOpacity : 1);
 
   // Update glow data-attr on highlighted elements
   document.querySelectorAll('.tg-row, #currentTgChip').forEach(el=>{
@@ -1766,6 +1771,36 @@ function extractLastNumber(str) {
     const match = str.match(/(\d+)(?!.*\d)/);
     return match ? parseInt(match[0], 10) : null;
 }
+function saveCallHistoryToLocalStorage() {
+  const tableBody = document.getElementById("callHistoryBody");
+  const rows = Array.from(tableBody.querySelectorAll("tr"));
+  const data = rows.map(row => {
+    return Array.from(row.querySelectorAll("td")).map(cell => cell.innerHTML);
+  });
+  const MAX_HISTORY_ROWS = 200; // or whatever you want
+  if (data.length > MAX_HISTORY_ROWS) {
+    data = data.slice(0, MAX_HISTORY_ROWS);
+  }
+  localStorage.setItem("op25_call_history", JSON.stringify(data));
+}
+
+function restoreCallHistoryFromLocalStorage() {
+  const data = JSON.parse(localStorage.getItem("op25_call_history") || "[]");
+  const tableBody = document.getElementById("callHistoryBody");
+  tableBody.innerHTML = ""; // Clear existing
+  data.forEach(cols => {
+    const row = document.createElement("tr");
+    row.innerHTML = cols.map(cell => `<td>${cell}</td>`).join("");
+    // Re-apply TG highlight (column 3 is TGID)
+    const tgidCell = row.querySelectorAll("td")[3];
+    if (tgidCell) {
+      const tgid = tgidCell.textContent.trim();
+      if (tgid) applyTgRowHighlight(row, tgid);
+    }
+    tableBody.appendChild(row);
+  });
+  applySmartColorsToCallHistory();
+}
 
 function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource) {
 
@@ -1881,6 +1916,7 @@ function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceI
   }
 
 	applySmartColorsToCallHistory();
+  saveCallHistoryToLocalStorage();
 	
 	const table = document.getElementById("callHistoryContainer");
 
@@ -1900,30 +1936,29 @@ function brightenRgb(rgbStr, amount = 30) {
 }
 
 function applySmartColorsToChannels() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-
   const rows = document.querySelectorAll("#channels-container tbody tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
     if (cells.length < 6) return; // make sure column 5 exists
 
-    const talkgroupCell = cells[5];
-    const cellText = talkgroupCell.textContent.toLowerCase();
+    // TGID is column 4, tag is column 5
+    const tgidCell = cells[4];
+    const tagCell = cells[5];
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
 
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        talkgroupCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      talkgroupCell.style.color = "";
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20);
+      // Apply to all cells in the row
+      cells.forEach(cell => {
+        cell.style.color = `rgb(${brightRgb})`;
+      });
+    } else {
+      cells.forEach(cell => {
+        cell.style.color = "";
+      });
     }
   });
 } // end applySmartColorsToChannels
@@ -1958,65 +1993,47 @@ function applySmartColorsToCallHistory() {
 }
 
 function applySmartColorsToFrequencyTable() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-
   const rows = document.querySelectorAll("#frequencyTable tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
-    if (cells.length < 3) return;
+    if (cells.length < 4) return;
 
-    const talkgroupCells = [cells[2]];
-    if (cells.length > 3 && cells[3].cellIndex === 3) {
-      talkgroupCells.push(cells[3]);
+    // TGID is in column 3, tag in column 4
+    const tgidCell = cells[2];
+    const tagCell = cells[3];
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
+
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20);
+      tgidCell.style.color = `rgb(${brightRgb})`;
+      tagCell.style.color = `rgb(${brightRgb})`;
+    } else {
+      tgidCell.style.color = "";
+      tagCell.style.color = "";
     }
-
-    talkgroupCells.forEach(cell => {
-      const fullText = cell.textContent;
-      const firstLine = fullText.split('\n')[0].toLowerCase(); // Only first line for matching
-
-      let matched = false;
-
-      // Skip TDMA/FDMA mode cells
-      if (firstLine === "fdma" || firstLine === "tdma") return;
-
-      for (const colorGroup of smartColors) {
-        if (colorGroup.keywords.some(keyword => firstLine.includes(keyword.toLowerCase()))) {
-          cell.style.color = colorGroup.color;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        cell.style.color = "";
-      }
-    });
   });
 } // end applySmartColorsToFrequencyTable
 
 function applySmartColorToTgidSpan() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
+  const el = document.getElementById("displayTalkgroup");
+  const source = document.getElementById("displaySource");
+  const tgidEl = document.getElementById("displayTgid");
+  if (!el || !tgidEl) return;
 
-	const el = document.getElementById("displayTalkgroup");
-	if (!el) return;
-	
-	const source = document.getElementById("displaySource");
-
-  const cellText = el.textContent.toLowerCase();
-
-  for (const colorGroup of smartColors) {
-    if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-      el.style.color = colorGroup.color;
-      source.style.color = colorGroup.color;
-      return;
-    }
+  const tgid = tgidEl.textContent.trim();
+  const rgb = getTgRgbString(tgid);
+  if (rgb) {
+    const brightRgb = brightenRgb(rgb, 20);
+    el.style.color = `rgb(${brightRgb})`;
+    if (source) source.style.color = `rgb(${brightRgb})`;
+  } else {
+    el.style.color = "";
+    if (source) source.style.color = "";
   }
-
-  el.style.color = "";
-} // end applySmartColorToTgidSpan
+}// end applySmartColorToTgidSpan
 
 function getSiteAlias(sysname, rfss, site) {
     const sysNameUpper = String(sysname).toUpperCase();  // Normalize sysname to uppercase
