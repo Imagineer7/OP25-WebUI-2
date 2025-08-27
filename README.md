@@ -15,12 +15,12 @@ You do **not** need to reinstall the entire project. To update to the latest web
    * **Clone this repository**:
 
      ```bash
-     git clone https://github.com/your-username/op25.git
+     git clone https://github.com/Imagineer7/OP25-WebUI-2.git
      ```
    * **Or download individual files** directly from the repository page.
 
 2. **Update Web Files**
-   Replace the following files in your OP25 installation directory:
+   Replace the following files in your OP25 webpage directory:
 
    * `index.html`
    * `main.css`
