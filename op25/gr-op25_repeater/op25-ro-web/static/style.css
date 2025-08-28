@@ -22,3 +22,178 @@ tbody tr:nth-child(even){background:var(--band)}
 .dot{width:10px;height:10px;border-radius:50%;background:#777}.dot.ok{background:#2ecc71}
 .foot{color:var(--muted);text-align:center;padding:10px 0}
 .tg-chip{display:inline-block;width:.8em;height:.8em;border-radius:50%;vertical-align:-.1em;margin-right:.3em;box-shadow:0 0 10px currentColor}
+.badge{
+  display:inline-flex; align-items:center; gap:.45em;
+  font-size:12px; padding:3px 8px; border-radius:999px;
+  border:1px solid #2a2f3a; background:#161a22; color:#a9b0bd;
+}
+.badge .dot{width:8px; height:8px}
+.badge.live{color:#c9f7d3; border-color:#285; background:#112015}
+.badge.live .dot{background:#2ecc71; box-shadow:0 0 8px rgba(46,204,113,.75)}
+.badge.idle{color:#a9b0bd; border-color:#333; background:#15171c}
+
+.now.idle{opacity:.6} /* dim the whole card when idle */
+
+/* optional: pulsing dot when live */
+@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.25)} 100%{transform:scale(1)} }
+.badge.live .dot{animation:pulse 1.6s ease-in-out infinite}
+
+/* 1) Let the "Now Talking" row wrap on small screens */
+.now-flex{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  flex-wrap: wrap;              /* <-- allow wrapping */
+}
+
+/* 2) Make the key/value block and audio block flex nicely */
+.kv{ flex: 1 1 260px; min-width: 0; }     /* grow, but don’t force width */
+.audio{ flex: 1 1 260px; min-width: 0; }  /* drop fixed min/max on narrow screens */
+@media (max-width: 700px){
+  .audio{ max-width: 100%; }              /* full width when wrapped */
+}
+
+/* 3) Prevent long values from pushing layout horizontally */
+.kv .k, .kv .v{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;          /* keeps a single line with ellipsis */
+}
+@media (max-width: 480px){
+  /* allow wrapping on very small phones so more info is visible */
+  .kv .k, .kv .v{ white-space: normal; word-break: break-word; }
+  .kv .k{ min-width: 72px; }    /* slightly smaller label width on tiny screens */
+}
+
+/* 4) Table: ensure it never causes horizontal scroll */
+.table-wrap{
+  max-height: 60vh;
+  overflow:auto;                /* already set; keeps vertical scroll */
+  overflow-x:auto;              /* just in case narrow devices need side scroll INSIDE box */
+}
+table{ table-layout: fixed; }   /* cells don’t grow past container */
+.compact th, .compact td{
+  word-wrap: break-word;
+  white-space: nowrap;          /* keeps rows compact */
+}
+@media (max-width: 480px){
+  /* Let the Name column wrap; keep numeric columns tight */
+  .compact td:nth-child(4),
+  .compact th:nth-child(4){ white-space: normal; }
+}
+
+/* 5) Grid: single column kicks in at 1000px already — keep it */
+@media (max-width:1000px){
+  .grid{ grid-template-columns:1fr; }
+}
+
+/* 6) Last-resort guard: never allow page-wide horizontal scroll */
+html, body{ max-width:100%; overflow-x:hidden; }
+
+@media (max-width: 480px){
+  .card{ padding:10px; }
+  .compact th, .compact td{ padding:5px; font-size:14px; }
+}
+
+@media (max-width: 360px){
+  /* Hide Source and Enc to avoid horizontal squeeze */
+  .compact th:nth-child(5), .compact td:nth-child(5),
+  .compact th:nth-child(6), .compact td:nth-child(6){ display:none; }
+}
+
+.kv .v, .compact td { overflow-wrap:anywhere; }
+
+.audio, audio { max-width:100%; }
+
+/* --- Mobile table fixes --- */
+@media (max-width: 700px){
+  /* slightly smaller text in the table */
+  table.compact { font-size: 13px; }
+
+  /* let cells wrap, and make rows grow to fit */
+  .compact th, .compact td{
+    white-space: normal;            /* allow wrapping */
+    word-break: break-word;         /* break long words/IDs if needed */
+    overflow-wrap: anywhere;        /* modern fallback */
+    line-height: 1.25;              /* more breathing room */
+    vertical-align: top;            /* start from the top of the cell */
+  }
+
+  /* keep numbers tighter; name can wrap freely */
+  .compact td:nth-child(1),
+  .compact td:nth-child(2),
+  .compact td:nth-child(3),
+  .compact td:nth-child(5),
+  .compact td:nth-child(6){
+    white-space: nowrap;            /* time, freq, tgid, src, enc stay on one line */
+  }
+  .compact td:nth-child(4),         /* Name column */
+  .compact th:nth-child(4){
+    white-space: normal;            /* allow wrapping for names */
+  }
+
+  /* make sure the colored chip never causes layout issues */
+  .tg-chip{
+    flex: 0 0 auto;
+    width: .8em; height: .8em;
+    display: inline-block;
+    margin-right: .35em;
+  }
+}
+
+/* if extremely narrow (tiny phones), relax even more */
+@media (max-width: 380px){
+  table.compact { font-size: 12px; }
+  .compact th, .compact td{ padding: 5px 6px; }
+}
+
+.controls{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;
+}
+.controls .btn{ padding:6px 12px; }
+.controls .vol{ display:flex; align-items:center; gap:6px; color:var(--muted); }
+.controls input[type="range"]{ width:140px; }
+
+/* simple status styles reusing your badge look */
+.status { margin-left: 4px; }
+.status.ok    { color:#c9f7d3; border-color:#285; background:#112015; }
+.status.err   { color:#ffd2d2; border-color:#822; background:#2a1010; }
+
+
+/* VU meter */
+#vuMeter{
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  width: 180px;
+  height: 12px;
+  background: #333;
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 2147483647;
+  box-shadow: 0 0 6px rgba(0,0,0,.4);
+  display: flex;
+  align-items: center;
+}
+#vuMeter .fill{
+  height: 100%;
+  width: 0%;
+  background: #4caf50;
+  transition: width 60ms linear;
+}
+#vuMeter .label{
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font: 11px/1.2 system-ui, sans-serif;
+  color: #ddd;
+  opacity: .7;
+  pointer-events: none;
+}
+#vuMeter.error{
+  height: 24px;
+  color: #fff;
+  padding: 0 8px;
+}
+#vuMeter.error .fill{ display:none; }
