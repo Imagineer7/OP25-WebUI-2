@@ -32,7 +32,6 @@
         <div class="muted" id="lastHeard" style="margin-top:8px;">Last heard: —</div>
         <div class="audio">
           <audio id="audio" preload="none" playsinline></audio>
-          <audio id="audio" controls></audio> <!-- TEMP: controls for sanity -->
 
           <div class="controls" role="group" aria-label="Player controls">
             <button id="playToggle" class="btn" aria-label="Play">▶︎ Play</button>
@@ -65,9 +64,6 @@
       </div>
     </section>
   </main>
-
-  <button id="testLocalMp3">Play local MP3</button>
-  <button id="forceStream">Play /stream</button>
 
   <!-- VU METER -->
   <div id="vuMeter" aria-hidden="true">

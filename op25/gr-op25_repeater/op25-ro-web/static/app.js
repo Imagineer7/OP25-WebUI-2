@@ -11,6 +11,8 @@ const nowSrc = document.getElementById("nowSrc");
 const nowEnc = document.getElementById("nowEnc");
 
 // ===== Config =====
+const IS_FIREFOX = /\bfirefox\/\d+/i.test(navigator.userAgent);
+
 const MAX_ROWS = 200;                    // max rows kept in localStorage
 const LS_KEY = "scanner_history_v1";     // per-browser history key
 
@@ -120,12 +122,26 @@ function liveEdge(){
   const r = audio.seekable;
   return (r && r.length) ? r.end(r.length - 1) : NaN;
 }
+
+// Throttled “snap” (Chrome/Edge only). Firefox: do NOTHING.
+let _lastSnap = 0;
 function snapToLiveIfLagging(){
-  if (!audio || audio.paused) return;
+  if (!audio || audio.paused || IS_FIREFOX) return; // ← bail on Firefox
+  const now = performance.now();
+  if (now - _lastSnap < 1000) return;              // throttle to 1x/sec
   const edge = liveEdge();
-  if (!Number.isFinite(edge)) return;
+  if (!Number.isFinite(edge) || audio.seeking) return;
   const lag = edge - audio.currentTime;
-  if (lag > 1.0) audio.currentTime = Math.max(0, edge - 0.25);
+  if (lag > 1.5) { // be less aggressive
+    try { audio.currentTime = Math.max(0, edge - 0.25); } catch {}
+    _lastSnap = now;
+  }
+}
+
+if (!IS_FIREFOX) {
+  ['playing','timeupdate'].forEach(ev => {
+    audio.addEventListener(ev, snapToLiveIfLagging);
+  });
 }
 
 // Controls
@@ -413,18 +429,130 @@ async function pollLive(){
   }
 }
 
-// ---- AUDIO GRAPH + VU (Firefox + Chrome) ----
+// Ensure we only ever use the HTML #vuMeter and remove any legacy bars
+(function normalizeVu(){
+  // remove any old JS-created bars (from earlier makeVu tests)
+  document.querySelectorAll('[data-vu-legacy]').forEach(n => n.remove());
+
+  const meter = document.getElementById('vuMeter');
+  const fill  = meter?.querySelector('.fill');
+
+  if (!meter || !fill) return;
+
+  // yank meter to <body> so nothing clips it
+  if (meter.parentElement !== document.body) document.body.appendChild(meter);
+
+  // enforce top/stacking and layout so width animations are visible
+  Object.assign(meter.style, {
+    position: 'fixed',
+    left: '10px',
+    bottom: '10px',
+    width: '180px',
+    height: '12px',
+    zIndex: '2147483647',
+    overflow: 'hidden',
+    isolation: 'isolate',
+    pointerEvents: 'none'
+  });
+  Object.assign(fill.style, {
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    bottom: '0',
+    // IMPORTANT: don't set 'right' so width is respected
+    width: '0%',
+    zIndex: '1'
+  });
+})();
+
+// One VU loop at a time; reuse this from both FF/Chromium paths
+const VU = { raf: 0, analyser: null };
+
+function startVu(analyser) {
+  VU.analyser = analyser;
+  if (VU.raf) cancelAnimationFrame(VU.raf);
+
+  const bar = document.querySelector('#vuMeter .fill');
+  if (!bar || !VU.analyser) return;
+
+  const buf = new Uint8Array(VU.analyser.frequencyBinCount);
+  const tick = () => {
+    VU.analyser.getByteTimeDomainData(buf);
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = Math.abs(buf[i] - 128);
+      if (v > peak) peak = v;
+    }
+    bar.style.width = `${Math.min(100, (peak / 128) * 100)}%`;
+    VU.raf = requestAnimationFrame(tick);
+  };
+  VU.raf = requestAnimationFrame(tick);
+}
+
+// ---- Cross-browser audio routing with Firefox captureStream VU fallback ----
 (function setupAudioGraph(){
   const el = document.getElementById('audio');
   if (!el || window.__audioGraphSetup) return;
   window.__audioGraphSetup = true;
 
+  const isFirefox = /\bfirefox\/\d+/i.test(navigator.userAgent);
+
+  if (isFirefox) {
+    // Firefox: play through the element; VU via captureStream if possible
+    el.muted = false; // element outputs directly (you already control volume via #vol)
+    console.log('[AUDIO] Firefox: direct element playback');
+
+    let vuInit = false;
+    const initVuFF = () => {
+      if (vuInit) return; vuInit = true;
+      try {
+        if (typeof el.captureStream !== 'function') { console.warn('[VU] FF: no captureStream'); return; }
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) { console.warn('[VU] FF: no AudioContext'); return; }
+
+        const ac = new AudioCtx();
+        const resume = () => { if (ac.state === 'suspended') ac.resume().catch(()=>{}); };
+        window.addEventListener('click', resume, { once:true });
+        el.addEventListener('play', resume, { once:true });
+
+        const ms  = el.captureStream();            // mirror element’s output
+        const src = ac.createMediaStreamSource(ms);
+        const analyser = ac.createAnalyser();
+        analyser.fftSize = 512;
+        src.connect(analyser);                     // analyser only, no destination
+
+        const bar = document.querySelector('#vuMeter .fill');
+        if (bar) {
+          const buf = new Uint8Array(analyser.frequencyBinCount);
+          (function tick(){
+            analyser.getByteTimeDomainData(buf);
+            let peak = 0;
+            for (let i=0;i<buf.length;i++){
+              const v = Math.abs(buf[i]-128);
+              if (v>peak) peak = v;
+            }
+            bar.style.width = `${Math.min(100, (peak/128)*100)}%`;
+            requestAnimationFrame(tick);
+          })();
+        }
+        console.log('[VU] Firefox: captureStream analyser active');
+      } catch (e) {
+        console.warn('[VU] Firefox captureStream failed:', e);
+        document.getElementById('vuMeter')?.classList.add('error');
+      }
+    };
+
+    // Start the VU after playback begins (captureStream works best then)
+    if (!el.paused) initVuFF(); else el.addEventListener('playing', initVuFF, { once:true });
+    return;
+  }
+
+  // Chromium/Edge: WebAudio graph (element muted), VU via analyser, volume via gain
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) { console.warn('[AUDIO] WebAudio not supported'); return; }
-
   const ac = new AudioCtx();
 
-  // Ensure context stays alive after click or play
   const resume = () => { if (ac.state === 'suspended') ac.resume().catch(()=>{}); };
   window.addEventListener('click', resume, { once:true });
   el.addEventListener('play', resume, { once:true });
@@ -436,7 +564,7 @@ async function pollLive(){
   try {
     srcNode = ac.createMediaElementSource(el);
   } catch (e) {
-    // fallback (Firefox-friendly if MediaElementSource already created)
+    // Fallback: mirror element via captureStream if MediaElementSource was already used
     if (typeof el.captureStream === 'function') {
       const ms = el.captureStream();
       srcNode = ac.createMediaStreamSource(ms);
@@ -446,119 +574,60 @@ async function pollLive(){
     }
   }
 
-  // ELEMENT PATH: mute + full volume (we'll control volume via WebAudio)
-  el.muted  = true;
+  // Avoid double-audio: element muted; use gain for loudness
+  el.muted = true;
   el.volume = 1;
 
-  // DESTINATION PATH: our own gain node driven by the UI slider
   const gain = ac.createGain();
-  const getUiVol = () => {
-    const v = Number(document.getElementById('vol')?.value || 1);
-    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
-  };
-  gain.gain.value = getUiVol();
-
-  // Wire graph: source -> (analyser) & source -> (gain -> speakers)
   const analyser = ac.createAnalyser();
   analyser.fftSize = 512;
+  startVu(analyser);
 
   srcNode.connect(analyser);
   srcNode.connect(gain);
   gain.connect(ac.destination);
 
-  // Keep gain synced to the UI slider ONLY
-  document.getElementById('vol')?.addEventListener('input', () => {
-    gain.gain.value = getUiVol();
-    console.log('[AUDIO] gain', gain.gain.value);
-  });
+  // Hook UI volume to gain (not el.volume)
+  const uiVol = document.getElementById('vol');
+  const getUiVol = () => {
+    const v = Number(uiVol?.value || 1);
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+    };
+  gain.gain.value = getUiVol();
+  uiVol?.addEventListener('input', () => { gain.gain.value = getUiVol(); });
 
-  // Tiny VU (reuse your bar if present)
-  const bar = document.getElementById('vuMeter')?.querySelector('.fill');
-  const buf = new Uint8Array(analyser.frequencyBinCount);
-  (function tick(){
-    analyser.getByteTimeDomainData(buf);
-    let peak = 0;
-    for (let i=0;i<buf.length;i++){
-      const v = Math.abs(buf[i]-128);
-      if (v>peak) peak = v;
-    }
-    if (bar) bar.style.width = `${Math.min(100, (peak/128)*100)}%`;
-    requestAnimationFrame(tick);
-  })();
-
-  // Helpful logs
-  el.addEventListener('playing', () => {
-    console.log('[AUDIO] playing; ac.state=', ac.state, 'gain=', gain.gain.value);
-  });
-})();
-
-// ===== DIAG HUD (shows if app sees the <audio>, and its state) =====
-(function(){
-  const hud = document.createElement('div');
-  Object.assign(hud.style, {
-    position: 'fixed', right: '10px', bottom: '10px', width: '320px',
-    font: '12px/1.3 system-ui, sans-serif', color: '#eee', background: 'rgba(0,0,0,.6)',
-    padding: '8px 10px', borderRadius: '8px', zIndex: 2147483647, pointerEvents: 'none',
-  });
-  document.body.appendChild(hud);
-
-  function prettyRS(n){ return ['HAVE_NOTHING','HAVE_METADATA','HAVE_CURRENT_DATA','HAVE_FUTURE_DATA','HAVE_ENOUGH_DATA'][n] || n; }
-  function prettyNS(n){ return ['EMPTY','IDLE','LOADING','NO_SOURCE'][n] || n; }
-
-  function upd(){
-    const el = document.getElementById('audio');
-    if (!el){
-      hud.textContent = 'HUD: <audio id="audio"> not found';
-      return;
-    }
-    const err = el.error ? `E${el.error.code}` : 'none';
-    const seek = (el.seekable && el.seekable.length) ? `${el.seekable.start(0).toFixed(2)}→${el.seekable.end(0).toFixed(2)}` : '—';
-    hud.innerHTML = [
-      `<b>HUD</b> app.js alive @ ${new Date().toLocaleTimeString()}`,
-      `currentSrc: ${el.currentSrc || '—'}`,
-      `readyState: ${prettyRS(el.readyState)}  network: ${prettyNS(el.networkState)}`,
-      `paused: ${el.paused}  muted: ${el.muted}  vol: ${el.volume.toFixed(2)}`,
-      `time: ${el.currentTime.toFixed(2)}  seekable: ${seek}`,
-      `error: ${err}`,
-    ].join('<br>');
+  // Simple VU
+  const bar = document.querySelector('#vuMeter .fill');
+  if (bar) {
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    (function tick(){
+      analyser.getByteTimeDomainData(buf);
+      let peak = 0;
+      for (let i=0;i<buf.length;i++){
+        const v = Math.abs(buf[i]-128);
+        if (v>peak) peak = v;
+      }
+      bar.style.width = `${Math.min(100, (peak/128)*100)}%`;
+      requestAnimationFrame(tick);
+    })();
   }
-  setInterval(upd, 500);
 
-  // Loud log that the script actually loaded:
-  console.log('[DIAG] app.js loaded and HUD running');
+  console.log('[AUDIO] Chromium path: source→(analyser & gain→dest), element muted');
 })();
 
-// ===== Minimal force tests =====
-(function(){
-  const el = document.getElementById('audio');
-  if (!el) { console.warn('No <audio id="audio">'); return; }
-
-  // same-origin local test file you place at /static/test.mp3
-  document.getElementById('testLocalMp3')?.addEventListener('click', async () => {
-    el.crossOrigin = '';     // not needed for same-origin file
-    el.muted = false;
-    el.volume = 1;
-    el.src = '/static/test.mp3'; // <- put a tiny mp3 here
-    el.load();
-    try { await el.play(); } catch(e){ console.error('local play failed', e); }
-  });
-
-  // force the live stream
-  document.getElementById('forceStream')?.addEventListener('click', async () => {
-    el.crossOrigin = 'anonymous'; // harmless on same-origin; useful if you proxy later
-    el.muted = false;
-    el.volume = 1;
-    el.src = `/stream?nocache=${Date.now()}`;
-    el.load();
-    try { await el.play(); } catch(e){ console.error('stream play failed', e); }
-  });
-
-  // verbose audio event logger
-  const prettyRS = (n)=>['HAVE_NOTHING','HAVE_METADATA','HAVE_CURRENT_DATA','HAVE_FUTURE_DATA','HAVE_ENOUGH_DATA'][n]||n;
-  const info = ()=>({src: el.currentSrc, paused: el.paused, muted: el.muted, vol: el.volume,
-    rs: prettyRS(el.readyState), ns: el.networkState, err: el.error?.code || null});
-  ['loadstart','loadedmetadata','loadeddata','canplay','canplaythrough','play','playing','pause','waiting','stalled','suspend','progress','timeupdate','ended','emptied','error']
-    .forEach(t => el.addEventListener(t, ev => console.log(`[AUDIO ${ev.type}]`, info())));
+(function ensureVuOnTop(){
+  const meter = document.getElementById('vuMeter');
+  if (!meter) return;
+  if (meter.parentElement !== document.body) {
+    document.body.appendChild(meter); // pull it out of any clipping container
+  }
+  // force topmost stacking context
+  meter.style.position = 'fixed';
+  meter.style.left = '10px';
+  meter.style.bottom = '10px';
+  meter.style.zIndex = '2147483647';
+  meter.style.pointerEvents = 'none';   // never block clicks
+  meter.style.transform = 'translateZ(0)'; // isolate stacking in some engines
 })();
 
 // boot

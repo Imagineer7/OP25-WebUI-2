@@ -51,56 +51,80 @@ def api_icecast():
 # ---- Same-origin audio proxy (avoids localhost/mixed-content) ----
 @app.route("/stream")
 def stream():
-    # optional cache-buster from client
+    # Optional cache-buster; not used, just varies URL for caches
     _ = request.args.get("nocache")
 
     sess = requests.Session()
     try:
-        # Ask Icecast for RAW audio only (no interleaved ICY metadata)
+        # Ask Icecast for RAW audio (no interleaved ICY metadata) and no compression
         upstream = sess.get(
             f"{ICECAST_BASE}{ICECAST_MOUNT}",
-            headers={"Icy-MetaData": "0"},
+            headers={
+                "Icy-MetaData": "0",
+                "Accept": "audio/mpeg,*/*;q=0.1",
+                "Accept-Encoding": "identity",
+                "Connection": "keep-alive",
+                # Some Icecast builds behave better if we also send a UA:
+                "User-Agent": "op25-proxy/1.0"
+            },
             stream=True,
-            timeout=(3.05, None)  # connect timeout, no read timeout
+            timeout=(3.05, None),   # (connect timeout, read timeout None = unlimited)
+            allow_redirects=True
         )
         upstream.raise_for_status()
 
         def gen():
             try:
-                for chunk in upstream.iter_content(chunk_size=16384):
+                for chunk in upstream.iter_content(chunk_size=16 * 1024):
                     if chunk:
-                        # IMPORTANT: don't transform, just pass bytes through
+                        # Pass bytes as-is. No transforms, no buffering.
                         yield chunk
-            except GeneratorExit:
-                pass
             finally:
-                try: upstream.close()
-                finally: sess.close()
+                try:
+                    upstream.close()
+                finally:
+                    sess.close()
 
-        # Friendlier caching (drop "no-store"), keep no-cache; enable CORS; avoid ranges
+        # Build response headers. IMPORTANT: avoid `no-store`.
         headers = {
+            # Trust upstream type if present; default to MP3
             "Content-Type": upstream.headers.get("Content-Type", "audio/mpeg"),
+
+            # Allow a tiny rolling buffer (Firefox needs this). No `no-store`.
             "Cache-Control": "no-cache, must-revalidate, no-transform",
             "Pragma": "no-cache",
             "Expires": "0",
+
+            # Streaming/transport hints
             "Accept-Ranges": "none",
             "Connection": "keep-alive",
-            # Let the VU meter sample across origins if you hit this via a domain
+            "Keep-Alive": "timeout=60, max=1000",
+
+            # Disable reverse-proxy buffering (Nginx)
+            "X-Accel-Buffering": "no",
+
+            # CORS so WebAudio analyser can read samples across origins
             "Access-Control-Allow-Origin": "*",
             "Timing-Allow-Origin": "*",
+
+            # Be explicit for old sniffers
+            "X-Content-Type-Options": "nosniff",
         }
 
-        # Do NOT forward icy-metaint (we asked upstream not to send it anyway)
+        # Do NOT forward `icy-metaint` (we requested none).
+
         return Response(
             stream_with_context(gen()),
-            headers=headers,
             status=200,
-            direct_passthrough=True  # ensure Werkzeug treats this as a real stream
+            headers=headers,
+            direct_passthrough=True  # ensure Werkzeug does not buffer
         )
 
     except Exception as e:
-        try: sess.close()
-        except: pass
+        try:
+            sess.close()
+        except Exception:
+            pass
         return jsonify({"ok": False, "error": str(e)}), 502
     
 @app.route("/stream-direct")

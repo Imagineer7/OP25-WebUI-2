@@ -159,8 +159,7 @@ html, body{ max-width:100%; overflow-x:hidden; }
 .status.ok    { color:#c9f7d3; border-color:#285; background:#112015; }
 .status.err   { color:#ffd2d2; border-color:#822; background:#2a1010; }
 
-
-/* VU meter */
+/* VU meter – stacking + correct width behavior */
 #vuMeter{
   position: fixed;
   left: 10px;
@@ -172,15 +171,23 @@ html, body{ max-width:100%; overflow-x:hidden; }
   overflow: hidden;
   z-index: 2147483647;
   box-shadow: 0 0 6px rgba(0,0,0,.4);
-  display: flex;
-  align-items: center;
+  isolation: isolate;          /* own stacking context */
+  pointer-events: none;        /* never capture clicks */
 }
+
 #vuMeter .fill{
-  height: 100%;
-  width: 0%;
+  position: absolute;
+  left: 0;                     /* <-- keep left fixed */
+  top: 0;                      /* <-- and pin to top/bottom */
+  bottom: 0;
+  /* right: auto;              /* <-- DO NOT set right; avoids width constraints */
+  width: 0%;                   /* <-- now this animates correctly */
   background: #4caf50;
   transition: width 60ms linear;
+  will-change: width;          /* smoother updates */
+  z-index: 1;
 }
+
 #vuMeter .label{
   position: absolute;
   right: 6px;
@@ -189,11 +196,14 @@ html, body{ max-width:100%; overflow-x:hidden; }
   font: 11px/1.2 system-ui, sans-serif;
   color: #ddd;
   opacity: .7;
+  z-index: 2;
   pointer-events: none;
 }
+
 #vuMeter.error{
   height: 24px;
   color: #fff;
   padding: 0 8px;
 }
 #vuMeter.error .fill{ display:none; }
+
