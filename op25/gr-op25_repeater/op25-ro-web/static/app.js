@@ -34,14 +34,22 @@ function renderHist(rows){
   if (!histTbd) return;
   histTbd.innerHTML = "";
   rows.forEach(row=>{
+    // Badge color logic
+    const name = row.name || "";
+    let badgeClass = "badge-name";
+    if (/EMS/i.test(name))      badgeClass += " badge-ems";
+    else if (/PD/i.test(name))  badgeClass += " badge-pd";
+    else if (/FD/i.test(name))  badgeClass += " badge-fd";
+    else if (/DOT/i.test(name)) badgeClass += " badge-dot";
+    else if (/DNS/i.test(name)) badgeClass += " badge-dns";
+    else if (/AST/i.test(name)) badgeClass += " badge-ast";
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${row.time||""}</td>
-      <td>${row.freq||""}</td>
+      <td>${formatFreq(row.freq)||""}</td>
       <td><span class="tg-chip" style="color:${tgColorFromId(row.tgid)}"></span>${row.tgid||""}</td>
-      <td>${row.name||""}</td>
-      <td>${row.source||""}</td>
-      <td>${row.enc||""}</td>`;
+      <td><span class="${badgeClass}">${name}</span></td>`;
     histTbd.appendChild(tr);
   });
 }
@@ -52,6 +60,13 @@ function updateNowUI(n){
   if (nowFq)  nowFq.textContent  = n.freq   || "—";
   if (nowSrc) nowSrc.textContent = n.source || "—";
   if (nowEnc) nowEnc.textContent = n.enc    || "—";
+}
+
+// Add this helper near your other helpers
+function formatFreq(freq) {
+  if (!freq) return "";
+  // Remove trailing zeros and decimal if not needed
+  return String(freq).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
 }
 
 // ===== Audio (live stream with single Play/Pause & Mute/Unmute) =====
