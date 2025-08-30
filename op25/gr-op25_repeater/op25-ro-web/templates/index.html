@@ -13,6 +13,8 @@
     <h1>Live Scanner</h1>
     <div id="netDot" class="dot"></div>
     <span id="listenerCount" class="muted" style="margin-left:12px;">Listeners: —</span>
+    <button id="openWelcome" class="btn" style="margin-left:10px;">Help</button>
+    <button id="openAbout" class="btn" style="margin-left:6px;">About</button>
   </header>
 
   <main class="grid">
@@ -74,8 +76,74 @@
 
   <footer class="foot">Public read-only view</footer>
 
+  <!-- Popups -->
+<div id="welcomePopup" class="popup-backdrop" style="display:none;">
+  <div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
+    <div class="popup-tabs">
+      <button class="tab-btn active" data-tab="instructions">Instructions</button>
+      <button class="tab-btn" data-tab="policy">Policy & Warnings</button>
+      <button class="close-btn" id="closePopup" aria-label="Close">&times;</button>
+    </div>
+    <div class="popup-content">
+      <div class="tab-content active" id="tab-instructions">
+        <h2 id="popupTitle">How to Use</h2>
+        <ul>
+          <li>Click <b>Play</b> to start the live audio stream.</li>
+          <li>Use <b>Mute</b> and <b>Volume</b> to control audio.</li>
+          <li>Recent calls appear in the <b>Recent Activity</b> table.</li>
+          <li>Colored badges indicate agency/type (e.g. <span class="name-badge badge-ast">AST</span>, <span class="name-badge badge-ems">EMS</span>).</li>
+          <li>Test your audio with the <b>Test Tone</b> button.</li>
+        </ul>
+      </div>
+      <div class="tab-content" id="tab-policy">
+        <h2>Policy &amp; Warnings</h2>
+        <ul>
+          <li>This site streams <b>only unencrypted, publicly available radio transmissions</b> for informational and educational use.</li>
+          <li>Encrypted or restricted signals are <b>intentionally blocked</b> and are not accessible via this interface.</li>
+          <li>Do not rebroadcast or use the content for unlawful purposes.</li>
+          <li>Some jurisdictions restrict scanner use—especially while driving or in connection with crimes (e.g., mobile use prohibited in Florida, New York, Minnesota, Indiana, Kentucky; penalties in crime-enhancement states). Check your local laws.</li>
+          <li>Unauthorized interception or disclosure of <b>non-public communications</b> may violate federal law (e.g., 47 U.S.C. § 605).</li>
+          <li>We disclaim <b>all liability</b> for misuse of this service, or for any direct, indirect, incidental, or consequential damages.</li>
+          <li>Use this site <b>at your own risk</b>. We make no guarantees regarding uninterrupted access or content accuracy.</li>
+          <li>We reserve the right to suspend or discontinue service at any time.</li>
+          <li>See the <b>About</b> section and Terms of Service for more details.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="aboutPopup" class="popup-backdrop" style="display:none;">
+  <div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="popup-tabs">
+      <span style="font-weight:600;font-size:16px;padding:12px 18px 10px 18px;" id="aboutTitle">About</span>
+      <button class="close-btn" id="closeAbout" aria-label="Close">&times;</button>
+    </div>
+    <div class="popup-content">
+      <p>
+        <b>OP25 Public Scanner</b> is a read-only web interface for monitoring <b>unencrypted, public</b> radio traffic.<br><br>
+        <b>Features:</b>
+        <ul>
+          <li>Live audio stream with play, mute, and test tone controls</li>
+          <li>Recent activity table displaying talkgroup, name, and frequency</li>
+          <li>Color-coded badges indicating agency or type</li>
+          <li>Mobile-friendly, accessible design</li>
+        </ul>
+        <b>Disclaimer:</b>
+        <ul>
+          <li>Streams are limited to <b>unencrypted, publicly accessible</b> transmissions only.</li>
+          <li>Encrypted or restricted signals are <b>not captured, decrypted, or rebroadcast</b>.</li>
+          <li>Use for illegal activities is prohibited—check state and federal laws before listening (e.g., restrictions on use while driving or during crime).</li>
+        </ul>
+        <b>Contact:</b> <span style="color:#3dd6ff;">your@email.com</span>
+      </p>
+    </div>
+  </div>
+</div>
+
   <!-- was inline; now external to satisfy CSP -->
-  <script src="/config.js"></script>
-  <script src="/static/app.js?v=3"></script>
+<script src="/config.js"></script>
+<script src="/static/app.js?v=3"></script>
+
 </body>
 </html>

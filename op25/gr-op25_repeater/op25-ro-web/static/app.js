@@ -680,3 +680,46 @@ async function updateListenerCount() {
 // Update every 10 seconds
 setInterval(updateListenerCount, 2000);
 updateListenerCount(); // initial call
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Popup logic
+  function showPopup(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+  }
+  function hidePopup(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = "none";
+      document.body.style.overflow = "";
+    }
+  }
+
+  // Welcome popup tab switching
+  document.getElementById("openWelcome")?.addEventListener("click", () => showPopup("welcomePopup"));
+  document.getElementById("closePopup")?.addEventListener("click", () => hidePopup("welcomePopup"));
+  document.getElementById("openAbout")?.addEventListener("click", () => showPopup("aboutPopup"));
+  document.getElementById("closeAbout")?.addEventListener("click", () => hidePopup("aboutPopup"));
+
+  // Tab switching for welcome popup
+  document.querySelectorAll(".popup-tabs .tab-btn").forEach(btn => {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".popup-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+      this.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
+      document.getElementById("tab-" + this.dataset.tab).classList.add("active");
+    });
+  });
+
+  // Show welcome popup on first visit
+  (function(){
+    const KEY = "op25_welcome_seen";
+    if (!localStorage.getItem(KEY)) {
+      showPopup("welcomePopup");
+      localStorage.setItem(KEY, "1");
+    }
+  })();
+});
