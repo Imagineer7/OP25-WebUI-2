@@ -651,3 +651,32 @@ ensureAudio();           // single, authoritative init
 pollLive();
 setInterval(pollLive, POLL_MS);
 setInterval(updateLastHeard, 1000);
+
+// ===== Icecast listener count =====
+const listenerCountEl = document.getElementById('listenerCount');
+const ICECAST_MOUNT = (window.ROCFG && window.ROCFG.mountHint) || "/op25.mp3";
+
+async function updateListenerCount() {
+  if (!listenerCountEl) return;
+  try {
+    const r = await fetch("/api/icecast", {cache:"no-store"});
+    if (!r.ok) throw new Error("icecast fetch failed");
+    const js = await r.json();
+    if (!js.ok) throw new Error(js.error || "icecast error");
+    // Find the mount matching our stream
+    const mounts = js.data.icestats && js.data.icestats.source
+      ? Array.isArray(js.data.icestats.source)
+        ? js.data.icestats.source
+        : [js.data.icestats.source]
+      : [];
+    const mount = mounts.find(m => m.listenurl && m.listenurl.endsWith(ICECAST_MOUNT));
+    const count = mount && typeof mount.listeners === "number" ? mount.listeners : 0;
+    listenerCountEl.textContent = `Listeners: ${count}`;
+  } catch (e) {
+    listenerCountEl.textContent = "Listeners: —";
+  }
+}
+
+// Update every 10 seconds
+setInterval(updateListenerCount, 2000);
+updateListenerCount(); // initial call
