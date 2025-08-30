@@ -466,3 +466,11 @@ html, body{ max-width:100%; overflow-x:hidden; }
   box-shadow: none;
 }
 
+/* Hide Freq (2nd col) and TGID (3rd col) on screens <= 600px */
+@media (max-width: 600px) {
+  .compact th:nth-child(2), .compact td:nth-child(2),  /* Freq */
+  .compact th:nth-child(3), .compact td:nth-child(3) { /* TGID */
+    display: none;
+  }
+}
+
