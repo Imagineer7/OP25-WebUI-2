@@ -65,8 +65,16 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,Arial}
 .topbar{position:sticky;top:0;z-index:5;padding:10px 14px;background:#0b0d12;border-bottom:1px solid #222;display:flex;gap:10px;align-items:center}
 h1{margin:0;font-size:18px}
-.grid{max-width:1100px;margin:12px auto;padding:0 10px;display:grid;gap:14px;grid-template-columns:1.2fr .9fr}
-@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+.grid{max-width:1300px;margin:12px auto;padding:0 10px;display:grid;gap:14px;grid-template-columns:1.2fr 1.2fr}
+@media (min-width: 1400px) {
+  .grid {
+    max-width: 1600px;
+    grid-template-columns: 1.5fr 1.2fr;
+  }
+}
+@media (max-width:1000px){
+  .grid{grid-template-columns:1fr}
+}
 .card{background:var(--card);border:1px solid #2a2f3a;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.35);padding:12px}
 .row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}
 .now{box-shadow:inset 0 0 24px rgba(80,160,255,.2)}
@@ -567,5 +575,36 @@ html, body{ max-width:100%; overflow-x:hidden; }
 :root[data-theme="light"] #statsPanel .btn:focus {
   background: #0078d7;
   color: #fff;
+}
+
+/* Topbar button style: transparent, square, full height, no border-radius */
+.topbar .btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--fg);
+  border-radius: 0 !important;
+  height: 100%;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: none !important;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar .btn:hover,
+.topbar .btn:focus {
+  background: rgba(61,214,255,0.10);
+  color: var(--accent);
+  outline: none;
+}
+
+.topbar .btn:active {
+  background: rgba(61,214,255,0.18);
+  color: var(--accent);
 }
 
