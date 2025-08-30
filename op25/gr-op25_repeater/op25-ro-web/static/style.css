@@ -138,7 +138,7 @@ table {
 .badge-pd  { background: #1a2a1a; color: #fff; box-shadow: 0 0 8px 2px #2e8dcc77; border-color: #009dff; }
 .badge-fd  { background: #3a1a1a; color: #fff; box-shadow: 0 0 8px 2px #ff3d3d77; border-color: #ff3d3d; }
 .badge-dot { background: #2a1a3a; color: #fff; box-shadow: 0 0 8px 2px #b86bff77; border-color: #b86bff; }
-.badge-dns { background: #1a3a1c; color: #fff; box-shadow: 0 0 8px 2px #4dff6577; border-color: #4dff5c; }
+.badge-dnr { background: #1a3a1c; color: #fff; box-shadow: 0 0 8px 2px #4dff6577; border-color: #4dff5c; }
 .badge-ast { background: #1c1a2a; color: #fff; box-shadow: 0 0 8px 2px #4d68ff77; border-color: #4d71ff; }
 
 .now.idle{opacity:.6} /* dim the whole card when idle */

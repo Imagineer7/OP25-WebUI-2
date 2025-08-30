@@ -4,6 +4,7 @@ from flask import stream_with_context
 import os, json, time, requests
 import threading
 import random
+import atexit
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
@@ -16,6 +17,15 @@ os.makedirs(DATA_DIR, exist_ok=True)
 NOW_PATH       = os.path.join(DATA_DIR, "now.json")
 HIST_PATH      = os.path.join(DATA_DIR, "history.json")
 HIST_LIMIT     = 2000
+SHORT_HIST_PATH = os.path.join(DATA_DIR, "short_history.json")
+SHORT_HIST_LIMIT = 15
+
+# In-memory state for call tracking
+calltrack = {
+    "last_idle": True,
+    "call_start_ts": None,
+    "call_start_details": None,
+}
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -211,7 +221,7 @@ def ingest_now():
             try: hist = json.load(open(HIST_PATH)) or []
             except: hist = []
         row = {
-            "time": time.strftime("%H:%M:%S"),
+            "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "tgid": now["tgid"], "name": now["name"], "freq": now["freq"],
             "source": now["source"], "enc": now["enc"]
         }
@@ -261,7 +271,7 @@ def simulate_test_call():
             try: hist = json.load(open(HIST_PATH)) or []
             except: hist = []
         row = {
-            "time": time.strftime("%H:%M:%S"),
+            "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "tgid": now["tgid"], "name": now["name"], "freq": now["freq"],
             "source": now["source"], "enc": now["enc"]
         }
@@ -299,6 +309,77 @@ testcall_override = {
     "expires": 0
 }
 testcall_lock = threading.Lock()
+
+def load_short_history():
+    if os.path.exists(SHORT_HIST_PATH):
+        try:
+            return json.load(open(SHORT_HIST_PATH)) or []
+        except Exception:
+            return []
+    return []
+
+def save_short_history(hist):
+    with open(SHORT_HIST_PATH, "w") as f:
+        json.dump(hist[:SHORT_HIST_LIMIT], f)
+
+def poll_and_update_short_history():
+    while True:
+        try:
+            r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
+            r.raise_for_status()
+            data = r.json()
+            n = data.get("now", {})
+            idle = bool(data.get("idle", True))
+            ts = float(n.get("ts", 0))
+            call_key = "|".join([str(n.get("tgid","")), str(n.get("source","")), str(n.get("freq","")), str(n.get("enc","")), str(n.get("name",""))])
+
+            # Detect call start
+            if calltrack["last_idle"] and not idle and call_key:
+                calltrack["call_start_ts"] = ts
+                calltrack["call_start_details"] = {
+                    "freq": n.get("freq", ""),
+                    "tgid": n.get("tgid", ""),
+                    "name": n.get("name", ""),
+                    "source": n.get("source", ""),
+                    "enc": n.get("enc", "")
+                }
+
+            # Detect call end
+            if not calltrack["last_idle"] and idle and calltrack["call_start_ts"] is not None and calltrack["call_start_details"]:
+                call_end_ts = ts
+                duration = call_end_ts - calltrack["call_start_ts"]
+                if duration > 1.0:
+                    row = {
+                        "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "freq": calltrack["call_start_details"]["freq"],
+                        "tgid": calltrack["call_start_details"]["tgid"],
+                        "name": calltrack["call_start_details"]["name"],
+                        "source": calltrack["call_start_details"]["source"],
+                        "enc": calltrack["call_start_details"]["enc"],
+                        "duration": f"{duration:.1f}s"
+                    }
+                    hist = load_short_history()
+                    hist.insert(0, row)
+                    save_short_history(hist)
+                calltrack["call_start_ts"] = None
+                calltrack["call_start_details"] = None
+
+            calltrack["last_idle"] = idle
+        except Exception:
+            pass
+        time.sleep(1)
+
+# Start the background polling thread
+poller_thread = threading.Thread(target=poll_and_update_short_history, daemon=True)
+poller_thread.start()
+
+# Ensure thread stops on exit
+atexit.register(lambda: poller_thread.join(timeout=1))
+
+@app.route("/api/short_history")
+def api_short_history():
+    hist = load_short_history()
+    return jsonify({"ok": True, "history": hist})
 
 if __name__ == "__main__":
     app.run(host=LISTEN_ADDR, port=LISTEN_PORT)

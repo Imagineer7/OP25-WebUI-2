@@ -41,12 +41,12 @@ function renderHist(rows){
     else if (/PD/i.test(name))  badgeClass += " badge-pd";
     else if (/FD/i.test(name))  badgeClass += " badge-fd";
     else if (/DOT/i.test(name)) badgeClass += " badge-dot";
-    else if (/DNS/i.test(name)) badgeClass += " badge-dns";
+    else if (/DNR/i.test(name)) badgeClass += " badge-dnr";
     else if (/AST/i.test(name)) badgeClass += " badge-ast";
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${row.time||""}</td>
+      <td>${row.time ? new Date(row.time).toLocaleTimeString() : ""}</td>
       <td>${formatFreq(row.freq)||""}</td>
       <td><span class="tg-chip" style="color:${tgColorFromId(row.tgid)}"></span>${row.tgid||""}</td>
       <td><span class="${badgeClass}">${name}</span></td>
@@ -386,7 +386,7 @@ function applyNow(n) {
 
   // Build row
   const row = {
-    time: new Date().toLocaleTimeString(),
+    time: new Date().toISOString(),
     freq: n.freq || "",
     tgid: n.tgid || "",
     name: n.name || "",
@@ -489,7 +489,7 @@ async function pollLive(){
       const callEndTs = lastActiveTs ? lastActiveTs / 1000 : callStartTs;
       const duration = Math.max(0, callEndTs - callStartTs);
       const row = {
-        time: new Date().toLocaleTimeString(),
+        time: new Date().toISOString(),
         freq: callStartDetails.freq,
         tgid: callStartDetails.tgid,
         name: callStartDetails.name,
@@ -520,6 +520,56 @@ async function pollLive(){
     setNet(false);
     setBadgeIdle();
     // don’t immediately wipe fields — lets brief hiccups slide
+  }
+}
+
+// Merge server short history into local history
+async function mergeServerHistory() {
+  try {
+    const r = await fetch("/api/short_history", {cache: "no-store"});
+    if (!r.ok) throw new Error("Failed to fetch server history");
+    const js = await r.json();
+    if (!js.ok || !Array.isArray(js.history)) return;
+
+    const serverHist = js.history;
+    let userHist = loadHist();
+
+    // Find latest timestamp in user history
+    const userLatestTs = userHist.length
+      ? Date.parse(`1970-01-01T${userHist[0].time}Z`) || 0
+      : 0;
+
+    // Find latest timestamp in server history
+    const serverLatestTs = serverHist.length
+      ? Date.parse(`1970-01-01T${serverHist[0].time}Z`) || 0
+      : 0;
+
+    // Only merge if server has newer calls
+    if (serverLatestTs > userLatestTs) {
+      // Build a set of unique keys for user history (e.g., time+tgid+name)
+      const userKeys = new Set(userHist.map(row =>
+        [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|")
+      ));
+
+      // Only add server calls that are not already in user history and are newer
+      const newRows = serverHist.filter(row => {
+        const key = [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|");
+        // Optionally, you can also check duration if you want
+        return !userKeys.has(key) &&
+               (Date.parse(`1970-01-01T${row.time}Z`) || 0) > userLatestTs;
+      });
+
+      if (newRows.length) {
+        // Prepend new rows to user history
+        userHist = [...newRows, ...userHist];
+        if (userHist.length > MAX_ROWS) userHist.length = MAX_ROWS;
+        saveHist(userHist);
+        renderHist(userHist);
+      }
+    }
+  } catch (e) {
+    // Ignore errors, fallback to local history only
+    console.warn("History merge failed:", e);
   }
 }
 
@@ -726,6 +776,7 @@ function startVu(analyser) {
 
 // boot
 renderHist(loadHist());
+mergeServerHistory();
 ensureAudio();           // single, authoritative init
 pollLive();
 setInterval(pollLive, POLL_MS);
