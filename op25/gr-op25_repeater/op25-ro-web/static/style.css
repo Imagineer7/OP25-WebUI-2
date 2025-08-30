@@ -1,3 +1,64 @@
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --bg: #f7f8fa;
+  --fg: #222;
+  --muted: #6a6f7a;
+  --card: #fff;
+  --band: #e9eaf0;
+  --accent: #0078d7;
+}
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .popup-card {
+  color: #222;
+  background: #fff;
+  border-color: #d3d7e3;
+}
+:root[data-theme="light"] .topbar {
+  background: #e9eaf0;
+  border-bottom: 1px solid #d3d7e3;
+  color: #222;
+}
+:root[data-theme="light"] .badge,
+:root[data-theme="light"] .status {
+  background: #e9eaf0;
+  color: #0078d7;
+  border-color: #0078d7;
+}
+:root[data-theme="light"] .badge.live {
+  background: #e6ffe6;
+  color: #228822;
+  border-color: #228822;
+}
+:root[data-theme="light"] .badge.idle {
+  background: #f3f3f3;
+  color: #6a6f7a;
+  border-color: #bbb;
+}
+:root[data-theme="light"] .badge-name {
+  background: #e9eaf0;
+  color: #0078d7;
+  border-color: #0078d7;
+  box-shadow: 0 0 8px 2px #0078d733;
+}
+:root[data-theme="light"] .popup-card b {
+  color: #0078d7;
+}
+:root[data-theme="light"] .popup-content h2 {
+  color: #0078d7;
+}
+:root[data-theme="light"] .dot {
+  background: #bbb;
+}
+:root[data-theme="light"] .dot.ok {
+  background: #228822;
+}
+:root[data-theme="light"] #vuMeter {
+  background: #e9eaf0;
+}
+:root[data-theme="light"] #vuMeter .fill {
+  background: #0078d7;
+}
+
 :root{
   --bg:#0e1116;--fg:#e6e6e6;--muted:#a9b0bd;--card:#15171c;--band:#1a1d23;--accent:#3dd6ff;
 }

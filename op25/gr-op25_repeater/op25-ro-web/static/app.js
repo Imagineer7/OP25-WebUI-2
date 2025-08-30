@@ -723,3 +723,25 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   })();
 });
+
+(function themeToggleInit() {
+  const btn = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const THEME_KEY = "op25_theme";
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  function setTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    btn.textContent = theme === "dark" ? "🌙 Dark" : "☀️ Light";
+  }
+
+  // Load saved or system theme
+  let theme = localStorage.getItem(THEME_KEY) || (prefersDark ? "dark" : "light");
+  setTheme(theme);
+
+  btn?.addEventListener('click', () => {
+    theme = (root.getAttribute('data-theme') === "dark") ? "light" : "dark";
+    setTheme(theme);
+    localStorage.setItem(THEME_KEY, theme);
+  });
+})();
