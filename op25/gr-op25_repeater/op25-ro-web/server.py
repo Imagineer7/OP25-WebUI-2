@@ -2,6 +2,8 @@
 from flask import Flask, jsonify, render_template, request, send_from_directory, abort, Response
 from flask import stream_with_context
 import os, json, time, requests
+import threading
+import random
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
@@ -141,8 +143,40 @@ def serve_data(name):
 @app.route("/api/live")
 def api_live():
     try:
+        # Check for test call override
+        with testcall_lock:
+            override = testcall_override["data"]
+            expires = testcall_override["expires"]
+
+        # Fetch real data
         r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
         r.raise_for_status()
+        real_data = r.json()
+
+        # If override is active and not expired, and real data is idle, serve override
+        now_time = time.time()
+        is_real_idle = real_data.get("idle", True) or not real_data.get("now", {}).get("name")
+        if override and expires > now_time and is_real_idle:
+            # Copy override and update ts to current time
+            test_now = dict(override)
+            test_now["ts"] = time.time()
+            return (json.dumps({
+                "ok": True,
+                "idle": False,
+                "now": test_now
+            }), 200, {
+                "Content-Type":"application/json",
+                "Cache-Control":"no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma":"no-cache",
+                "Expires":"0"
+            })
+        # If a real call comes in, clear the override
+        if override and not is_real_idle:
+            with testcall_lock:
+                testcall_override["data"] = None
+                testcall_override["expires"] = 0
+
+        # Otherwise, serve real data
         return (r.content, 200, {
             "Content-Type":"application/json",
             "Cache-Control":"no-store, no-cache, must-revalidate, max-age=0",
@@ -155,6 +189,7 @@ def api_live():
 # ---- Local-only ingest from your main OP25 UI ----
 @app.route("/ingest/now", methods=["POST"])
 def ingest_now():
+    # Only allow requests from localhost (must SSH into host to use)
     if request.remote_addr not in ("127.0.0.1", "::1"):
         abort(403)
     try:
@@ -200,6 +235,70 @@ def ingest_now():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+@app.route("/simulate/testcall", methods=["POST"])
+def simulate_test_call():
+    """Simulate a fake call for frontend testing (local/private use only)."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        abort(403)
+    try:
+        # Random duration between 3 and 12 seconds
+        duration = random.randint(3, 12)
+        t = int(time.time())
+        now = {
+            "ts": t,
+            "tgid":  "99999",
+            "name":  "TEST CALL",
+            "freq":  "123.456789",
+            "source":"SIM",
+            "enc":   "",
+        }
+        # Write active call
+        with open(NOW_PATH, "w") as f: json.dump(now, f)
+        # Add to history
+        hist = []
+        if os.path.exists(HIST_PATH):
+            try: hist = json.load(open(HIST_PATH)) or []
+            except: hist = []
+        row = {
+            "time": time.strftime("%H:%M:%S"),
+            "tgid": now["tgid"], "name": now["name"], "freq": now["freq"],
+            "source": now["source"], "enc": now["enc"]
+        }
+        if not hist or row != hist[0]:
+            hist.insert(0, row)
+            hist = hist[:HIST_LIMIT]
+            with open(HIST_PATH, "w") as f: json.dump(hist, f)
+
+        # Set override for /api/live
+        with testcall_lock:
+            testcall_override["data"] = now
+            testcall_override["expires"] = time.time() + duration
+
+        # After duration, clear override and set idle
+        def set_idle():
+            idle_now = now.copy()
+            idle_now["name"] = ""
+            idle_now["source"] = ""
+            idle_now["enc"] = ""
+            idle_now["freq"] = ""
+            idle_now["tgid"] = ""
+            idle_now["ts"] = int(time.time())  # Make sure this is the current time!
+            with open(NOW_PATH, "w") as f: json.dump(idle_now, f)
+            with testcall_lock:
+                testcall_override["data"] = None
+                testcall_override["expires"] = 0
+        threading.Timer(duration, set_idle).start()
+
+        return jsonify({"ok": True, "duration": duration})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+testcall_override = {
+    "data": None,
+    "expires": 0
+}
+testcall_lock = threading.Lock()
 
 if __name__ == "__main__":
     app.run(host=LISTEN_ADDR, port=LISTEN_PORT)

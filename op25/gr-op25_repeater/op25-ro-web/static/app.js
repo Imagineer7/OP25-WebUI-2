@@ -329,6 +329,8 @@ const STALE_MS = 5000;  // if no new call in 5s, consider idle & clear
 
 let lastActiveTs = 0;   // unix ms of last activity we applied
 let lastKey = "";       // de-dup key for history rows
+let lastCallKey = "";
+let lastIdle = true;
 
 function setBadgeLive() {
   EL.badge?.classList.remove("idle");
@@ -373,8 +375,8 @@ function applyNow(n) {
   if (EL.src) EL.src.textContent = n.source|| "—";
   if (EL.enc) EL.enc.textContent = n.enc   || "—";
 
-  // De-dupe key for history (same call shouldn't add endless rows)
-  const key = [n.tgid||"", n.source||"", n.freq||"", n.enc||"", n.name||""].join("|");
+  /* De-dupe key for history (same call shouldn't add endless rows)
+  const key = [n.tgid||"", n.source||"", n.freq||"", n.enc||"", n.name||"", n.ts||""].join("|");
   if (!key || key === (applyNow._lastKey || "")) {
     document.title = n.tgid ? `${n.tgid} • ALMR Scanner` : "ALMR Scanner";
     return;
@@ -398,7 +400,7 @@ function applyNow(n) {
   saveHist(rows);
 
   // Re-render table from storage
-  renderHist(rows);
+  renderHist(rows);*/
 
   // Title
   document.title = n.tgid ? `${n.tgid} • ALMR Scanner` : "ALMR Scanner";
@@ -410,6 +412,25 @@ const FRESH_MS = 10_000; // consider a record live if ts is within 10s
 function isFresh(tsSec) {
   const tsMs = Number(tsSec || 0) * 1000;
   return tsMs && (Date.now() - tsMs) <= FRESH_MS;
+}
+
+// --- Call duration tracking ---
+let callStartTs = null;
+
+// Optionally, add a place in your HTML to show the duration, e.g.:
+// <div id="callDuration" class="muted" style="margin-top:4px;"></div>
+const callDurationEl = document.getElementById("callDuration");
+
+function updateCallDurationDisplay(duration) {
+  if (callDurationEl) {
+    if (duration != null) {
+      callDurationEl.textContent = `Last call duration: ${duration.toFixed(1)}s`;
+      callDurationEl.style.display = "block";
+    } else {
+      callDurationEl.textContent = "";
+      callDurationEl.style.display = "none";
+    }
+  }
 }
 
 async function pollLive(){
@@ -444,6 +465,55 @@ async function pollLive(){
         document.title = "ALMR Scanner";
       }
     }
+
+    // --- Call duration tracking logic ---
+    const idle = !!js.idle;
+    if (lastIdle && !idle) {
+      // Call started
+      callStartTs = tsSec;
+    }
+    if (!lastIdle && idle && callStartTs != null) {
+      // Call ended
+      const callEndTs = tsSec;
+      const duration = callEndTs - callStartTs;
+      updateCallDurationDisplay(duration);
+      callStartTs = null;
+    }
+    if (!idle && callStartTs != null) {
+      // Optionally, show live duration while call is active
+      updateCallDurationDisplay(tsSec - callStartTs);
+    }
+    if (idle && callStartTs == null) {
+      // No active call, nothing to show
+      updateCallDurationDisplay(null);
+    }
+
+    const callKey = [n.tgid||"", n.source||"", n.freq||"", n.enc||"", n.name||""].join("|");
+
+    // Only add to history when a new call starts (idle → active and callKey changed)
+    if (lastIdle && !idle && callKey && callKey !== lastCallKey) {
+      // Build row
+      const row = {
+        time: new Date().toLocaleTimeString(),
+        freq: n.freq || "",
+        tgid: n.tgid || "",
+        name: n.name || "",
+        source: n.source || "",
+        enc: n.enc || ""
+      };
+      // Update storage (single source of truth)
+      const rows = loadHist();
+      rows.unshift(row);
+      if (rows.length > MAX_ROWS) rows.length = MAX_ROWS;
+      saveHist(rows);
+      // Re-render table from storage
+      renderHist(rows);
+
+      lastCallKey = callKey;
+    }
+
+    // Update lastIdle for next poll
+    lastIdle = idle;
   } catch (e) {
     setNet(false);
     setBadgeIdle();
