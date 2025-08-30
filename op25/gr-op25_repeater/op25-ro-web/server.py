@@ -249,7 +249,7 @@ def simulate_test_call():
             "ts": t,
             "tgid":  "99999",
             "name":  "TEST CALL",
-            "freq":  "123.456789",
+            "freq":  "123.45",
             "source":"SIM",
             "enc":   "",
         }

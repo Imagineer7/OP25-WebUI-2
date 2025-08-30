@@ -49,7 +49,8 @@ function renderHist(rows){
       <td>${row.time||""}</td>
       <td>${formatFreq(row.freq)||""}</td>
       <td><span class="tg-chip" style="color:${tgColorFromId(row.tgid)}"></span>${row.tgid||""}</td>
-      <td><span class="${badgeClass}">${name}</span></td>`;
+      <td><span class="${badgeClass}">${name}</span></td>
+      <td>${row.duration||""}</td>`;
     histTbd.appendChild(tr);
   });
 }
@@ -416,6 +417,7 @@ function isFresh(tsSec) {
 
 // --- Call duration tracking ---
 let callStartTs = null;
+let callStartDetails = null;
 
 // Optionally, add a place in your HTML to show the duration, e.g.:
 // <div id="callDuration" class="muted" style="margin-top:4px;"></div>
@@ -468,48 +470,48 @@ async function pollLive(){
 
     // --- Call duration tracking logic ---
     const idle = !!js.idle;
-    if (lastIdle && !idle) {
-      // Call started
-      callStartTs = tsSec;
-    }
-    if (!lastIdle && idle && callStartTs != null) {
-      // Call ended
-      const callEndTs = tsSec;
-      const duration = callEndTs - callStartTs;
-      updateCallDurationDisplay(duration);
-      callStartTs = null;
-    }
-    if (!idle && callStartTs != null) {
-      // Optionally, show live duration while call is active
-      updateCallDurationDisplay(tsSec - callStartTs);
-    }
-    if (idle && callStartTs == null) {
-      // No active call, nothing to show
-      updateCallDurationDisplay(null);
-    }
-
     const callKey = [n.tgid||"", n.source||"", n.freq||"", n.enc||"", n.name||""].join("|");
 
-    // Only add to history when a new call starts (idle → active and callKey changed)
-    if (lastIdle && !idle && callKey && callKey !== lastCallKey) {
-      // Build row
-      const row = {
-        time: new Date().toLocaleTimeString(),
+    // When a call starts, record its details and start time
+    if (lastIdle && !idle && callKey) {
+      callStartTs = tsSec;
+      callStartDetails = {
         freq: n.freq || "",
         tgid: n.tgid || "",
         name: n.name || "",
         source: n.source || "",
         enc: n.enc || ""
       };
-      // Update storage (single source of truth)
+    }
+
+    // When a call ends, append to history
+    if (!lastIdle && idle && callStartTs != null && callStartDetails) {
+      const callEndTs = lastActiveTs ? lastActiveTs / 1000 : callStartTs;
+      const duration = Math.max(0, callEndTs - callStartTs);
+      const row = {
+        time: new Date().toLocaleTimeString(),
+        freq: callStartDetails.freq,
+        tgid: callStartDetails.tgid,
+        name: callStartDetails.name,
+        source: callStartDetails.source,
+        enc: callStartDetails.enc,
+        duration: duration.toFixed(1) + "s"
+      };
       const rows = loadHist();
       rows.unshift(row);
       if (rows.length > MAX_ROWS) rows.length = MAX_ROWS;
       saveHist(rows);
-      // Re-render table from storage
       renderHist(rows);
 
-      lastCallKey = callKey;
+      callStartTs = null;
+      callStartDetails = null;
+    }
+
+    // While a call is active, update the live duration display
+    if (!idle && callStartTs != null) {
+      updateCallDurationDisplay(tsSec - callStartTs);
+    } else if (idle) {
+      updateCallDurationDisplay(null);
     }
 
     // Update lastIdle for next poll
