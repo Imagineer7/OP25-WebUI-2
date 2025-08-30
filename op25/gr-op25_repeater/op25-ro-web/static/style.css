@@ -395,3 +395,51 @@ html, body{ max-width:100%; overflow-x:hidden; }
   margin-bottom: 0.5em;
 }
 
+.update-notice {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  background: #3dd6ff;
+  color: #222;
+  padding: 14px 56px 14px 18px;
+  text-align: center;
+  z-index: 9999;
+  font-size: 16px;
+  box-shadow: 0 -2px 16px #0004;
+  border-top: 1px solid #2a2f3a;
+  border-radius: 0 0 10px 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.update-notice-close {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  color: #222;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+  padding: 0 8px;
+  line-height: 1;
+}
+.update-notice-close:hover,
+.update-notice-close:focus {
+  opacity: 1;
+  color: #000;
+  background: #fff3;
+  border-radius: 50%;
+  outline: none;
+}
+
+/* Responsive: slightly smaller on mobile */
+@media (max-width: 600px) {
+  .update-notice { font-size: 14px; padding: 12px 44px 12px 10px; }
+  .update-notice-close { right: 8px; font-size: 22px; }
+}
+

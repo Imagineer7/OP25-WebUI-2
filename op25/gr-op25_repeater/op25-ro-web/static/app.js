@@ -722,6 +722,39 @@ document.addEventListener("DOMContentLoaded", function() {
       localStorage.setItem(KEY, "1");
     }
   })();
+
+  // ===== Update Notification =====
+  const VERSION_KEY = "op25_last_seen_version";
+  fetch("/static/version.json", {cache: "no-store"})
+    .then(r => r.json())
+    .then(ver => {
+      const lastSeen = localStorage.getItem(VERSION_KEY);
+      if (ver.version && ver.version !== lastSeen) {
+        // Show notification (simple alert, or a custom popup/toast)
+        alert(ver.message || "A new version of this site is available!");
+        localStorage.setItem(VERSION_KEY, ver.version);
+
+        const notice = document.getElementById("updateNotice");
+        if (notice) {
+          // Only set the message, not the whole innerHTML
+          notice.childNodes.forEach(node => {
+            if (node.nodeType === 3) notice.removeChild(node); // remove text nodes
+          });
+          // Insert message before the close button
+          const msg = document.createElement("span");
+          msg.textContent = ver.message || "A new version is available!";
+          notice.insertBefore(msg, notice.firstChild);
+
+          notice.style.display = "block";
+          setTimeout(()=>{ notice.style.display = "none"; }, 10000);
+        }
+      }
+    })
+    .catch(()=>{});
+
+  document.getElementById("updateNoticeClose")?.addEventListener("click", function() {
+    document.getElementById("updateNotice").style.display = "none";
+  });
 });
 
 (function themeToggleInit() {
