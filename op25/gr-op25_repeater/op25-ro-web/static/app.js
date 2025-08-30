@@ -989,7 +989,10 @@ function pollStats(which) {
   statsPollInterval = setInterval(fetchAndDraw, 5000);
 }
 
-// Draw bar graphs (simple, no external libs)
+// Chart.js integration
+let statsCallsChart = null;
+let statsAirtimeChart = null;
+
 function drawStatsGraphs(stats) {
   const callsCanvas = document.getElementById("statsCalls");
   const airtimeCanvas = document.getElementById("statsAirtime");
@@ -1001,12 +1004,71 @@ function drawStatsGraphs(stats) {
   const counts = sorted.map(([tgid, d]) => d.count);
   const airtimes = sorted.map(([tgid, d]) => d.airtime);
 
-  // Draw calls bar graph
-  drawBarGraph(callsCanvas, labels, counts, "Calls Today");
-  drawBarGraph(airtimeCanvas, labels, airtimes, "Airtime (s) Today");
+  // Try Chart.js, fallback to static if not available
+  if (window.Chart) {
+    // Calls chart
+    if (statsCallsChart) statsCallsChart.destroy();
+    statsCallsChart = new Chart(callsCanvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Calls Today',
+          data: counts,
+          backgroundColor: 'rgba(61,214,255,0.7)',
+          borderColor: 'rgba(61,214,255,1)',
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 700 },
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Calls Today', color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' }
+        },
+        scales: {
+          x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' } },
+          y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' } }
+        }
+      }
+    });
+
+    // Airtime chart
+    if (statsAirtimeChart) statsAirtimeChart.destroy();
+    statsAirtimeChart = new Chart(airtimeCanvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Airtime (s) Today',
+          data: airtimes,
+          backgroundColor: 'rgba(61,214,255,0.4)',
+          borderColor: 'rgba(61,214,255,1)',
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 700 },
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Airtime (s) Today', color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' }
+        },
+        scales: {
+          x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' } },
+          y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--fg') || '#e6e6e6' } }
+        }
+      }
+    });
+  } else {
+    // Fallback: static bar graph
+    drawBarGraph(callsCanvas, labels, counts, "Calls Today");
+    drawBarGraph(airtimeCanvas, labels, airtimes, "Airtime (s) Today");
+  }
 }
 
-// Simple bar graph renderer (no dependencies)
+// Draw bar graphs (simple, no external libs)
 function drawBarGraph(canvas, labels, values, title) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
