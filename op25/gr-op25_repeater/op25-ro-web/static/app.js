@@ -939,3 +939,101 @@ document.addEventListener("DOMContentLoaded", function() {
     localStorage.setItem(THEME_KEY, theme);
   });
 })();
+
+// Tab switching
+const histTableWrap = document.getElementById("historyTableWrap");
+const statsPanel = document.getElementById("statsPanel");
+const showHistoryTab = document.getElementById("showHistoryTab");
+const showStatsTab = document.getElementById("showStatsTab");
+
+showHistoryTab?.addEventListener("click", () => {
+  showHistoryTab.classList.add("active");
+  showStatsTab.classList.remove("active");
+  statsPanel.style.display = "none";
+  histTableWrap.style.display = "";
+});
+showStatsTab?.addEventListener("click", () => {
+  showStatsTab.classList.add("active");
+  showHistoryTab.classList.remove("active");
+  statsPanel.style.display = "";
+  histTableWrap.style.display = "none";
+  pollStats("today");
+});
+
+// Today/Yesterday toggle
+const showTodayStats = document.getElementById("showTodayStats");
+const showYesterdayStats = document.getElementById("showYesterdayStats");
+showTodayStats?.addEventListener("click", () => {
+  showTodayStats.classList.add("active");
+  showYesterdayStats.classList.remove("active");
+  pollStats("today");
+});
+showYesterdayStats?.addEventListener("click", () => {
+  showYesterdayStats.classList.add("active");
+  showTodayStats.classList.remove("active");
+  pollStats("yesterday");
+});
+
+// Poll stats and update graphs
+let statsPollInterval = null;
+function pollStats(which) {
+  clearInterval(statsPollInterval);
+  const url = which === "yesterday" ? "/api/stats_yesterday" : "/api/stats_today";
+  async function fetchAndDraw() {
+    const r = await fetch(url, {cache:"no-store"});
+    const js = await r.json();
+    if (!js.ok || !js.stats) return;
+    drawStatsGraphs(js.stats);
+  }
+  fetchAndDraw();
+  statsPollInterval = setInterval(fetchAndDraw, 5000);
+}
+
+// Draw bar graphs (simple, no external libs)
+function drawStatsGraphs(stats) {
+  const callsCanvas = document.getElementById("statsCalls");
+  const airtimeCanvas = document.getElementById("statsAirtime");
+  if (!callsCanvas || !airtimeCanvas) return;
+  const tgids = Object.entries(stats.tgids || {});
+  // Sort by call count descending
+  const sorted = tgids.sort((a, b) => b[1].count - a[1].count);
+  const labels = sorted.map(([tgid, d]) => d.name ? `${d.name} (${tgid})` : tgid);
+  const counts = sorted.map(([tgid, d]) => d.count);
+  const airtimes = sorted.map(([tgid, d]) => d.airtime);
+
+  // Draw calls bar graph
+  drawBarGraph(callsCanvas, labels, counts, "Calls Today");
+  drawBarGraph(airtimeCanvas, labels, airtimes, "Airtime (s) Today");
+}
+
+// Simple bar graph renderer (no dependencies)
+function drawBarGraph(canvas, labels, values, title) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Use CSS variables for theme colors
+  const style = getComputedStyle(document.documentElement);
+  const fg = style.getPropertyValue('--fg') || '#e6e6e6';
+  const accent = style.getPropertyValue('--accent') || '#3dd6ff';
+  const band = style.getPropertyValue('--band') || '#1a1d23';
+
+  ctx.font = "14px sans-serif";
+  ctx.fillStyle = fg;
+  ctx.fillText(title, 8, 18);
+  if (!values.length) {
+    ctx.fillText("No data", 8, 40);
+    return;
+  }
+  const maxVal = Math.max(...values, 1);
+  const barH = 22, gap = 8, leftPad = 140, topPad = 32;
+  for (let i = 0; i < values.length; ++i) {
+    const y = topPad + i * (barH + gap);
+    const barW = Math.round((w - leftPad - 16) * (values[i] / maxVal));
+    ctx.fillStyle = accent;
+    ctx.fillRect(leftPad, y, barW, barH);
+    ctx.fillStyle = fg;
+    ctx.fillText(labels[i], 8, y + barH * 0.7);
+    ctx.fillText(values[i].toFixed(1), leftPad + barW + 8, y + barH * 0.7);
+  }
+}

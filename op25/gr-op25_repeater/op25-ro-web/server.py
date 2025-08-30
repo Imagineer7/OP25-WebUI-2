@@ -5,6 +5,7 @@ import os, json, time, requests
 import threading
 import random
 import atexit
+import datetime
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
@@ -19,6 +20,9 @@ HIST_PATH      = os.path.join(DATA_DIR, "history.json")
 HIST_LIMIT     = 2000
 SHORT_HIST_PATH = os.path.join(DATA_DIR, "short_history.json")
 SHORT_HIST_LIMIT = 15
+
+STATS_TODAY_PATH = os.path.join(DATA_DIR, "stats_today.json")
+STATS_YEST_PATH  = os.path.join(DATA_DIR, "stats_yesterday.json")
 
 # In-memory state for call tracking
 calltrack = {
@@ -322,7 +326,27 @@ def save_short_history(hist):
     with open(SHORT_HIST_PATH, "w") as f:
         json.dump(hist[:SHORT_HIST_LIMIT], f)
 
-def poll_and_update_short_history():
+def load_stats(path):
+    if os.path.exists(path):
+        try:
+            return json.load(open(path)) or {}
+        except Exception:
+            return {}
+    return {}
+
+def save_stats(path, stats):
+    with open(path, "w") as f:
+        json.dump(stats, f)
+
+def get_today_str():
+    return datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+def poll_and_update_short_history_and_stats():
+    last_stats_date = get_today_str()
+    stats = load_stats(STATS_TODAY_PATH)
+    if not stats or stats.get("date") != last_stats_date:
+        stats = {"date": last_stats_date, "tgids": {}}
+
     while True:
         try:
             r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
@@ -349,6 +373,7 @@ def poll_and_update_short_history():
                 call_end_ts = ts
                 duration = call_end_ts - calltrack["call_start_ts"]
                 if duration > 1.0:
+                    # --- Short history (as before) ---
                     row = {
                         "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         "freq": calltrack["call_start_details"]["freq"],
@@ -361,6 +386,21 @@ def poll_and_update_short_history():
                     hist = load_short_history()
                     hist.insert(0, row)
                     save_short_history(hist)
+
+                    # --- Stats update ---
+                    today = get_today_str()
+                    if stats.get("date") != today:
+                        # Roll over to yesterday
+                        save_stats(STATS_YEST_PATH, stats)
+                        stats = {"date": today, "tgids": {}}
+                    tgid = str(calltrack["call_start_details"]["tgid"])
+                    name = calltrack["call_start_details"]["name"] or ""
+                    if tgid not in stats["tgids"]:
+                        stats["tgids"][tgid] = {"name": name, "count": 0, "airtime": 0.0}
+                    stats["tgids"][tgid]["name"] = name
+                    stats["tgids"][tgid]["count"] += 1
+                    stats["tgids"][tgid]["airtime"] += duration
+                    save_stats(STATS_TODAY_PATH, stats)
                 calltrack["call_start_ts"] = None
                 calltrack["call_start_details"] = None
 
@@ -369,8 +409,8 @@ def poll_and_update_short_history():
             pass
         time.sleep(1)
 
-# Start the background polling thread
-poller_thread = threading.Thread(target=poll_and_update_short_history, daemon=True)
+# Replace your old poller thread with this:
+poller_thread = threading.Thread(target=poll_and_update_short_history_and_stats, daemon=True)
 poller_thread.start()
 
 # Ensure thread stops on exit
@@ -380,6 +420,16 @@ atexit.register(lambda: poller_thread.join(timeout=1))
 def api_short_history():
     hist = load_short_history()
     return jsonify({"ok": True, "history": hist})
+
+@app.route("/api/stats_today")
+def api_stats_today():
+    stats = load_stats(STATS_TODAY_PATH)
+    return jsonify({"ok": True, "stats": stats})
+
+@app.route("/api/stats_yesterday")
+def api_stats_yesterday():
+    stats = load_stats(STATS_YEST_PATH)
+    return jsonify({"ok": True, "stats": stats})
 
 if __name__ == "__main__":
     app.run(host=LISTEN_ADDR, port=LISTEN_PORT)

@@ -64,15 +64,26 @@
     <section class="card">
       <div class="row between">
         <h2>Recent Activity</h2>
-        <button id="dlCsv" class="btn">Download CSV</button>
+        <div class="history-tabs">
+          <button id="showHistoryTab" class="tab-btn active">History</button>
+          <button id="showStatsTab" class="tab-btn">Stats</button>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table class="compact">
+      <div class="table-wrap" id="historyTableWrap">
+        <table class="compact" id="callHistoryTable">
           <thead>
             <tr><th>Time</th><th>Freq</th><th>TGID</th><th>Name</th><th>Duration</th></tr>
           </thead>
           <tbody id="histBody"></tbody>
         </table>
+      </div>
+      <div id="statsPanel" style="display:none;">
+        <div>
+          <button id="showTodayStats" class="btn active">Today</button>
+          <button id="showYesterdayStats" class="btn">Yesterday</button>
+        </div>
+        <canvas id="statsCalls" height="220"></canvas>
+        <canvas id="statsAirtime" height="220"></canvas>
       </div>
     </section>
   </main>
