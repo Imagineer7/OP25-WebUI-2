@@ -69,7 +69,10 @@ function formatFreq(freq) {
   return String(freq).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
 }
 
-// ===== Audio (live stream with single Play/Pause & Mute/Unmute) =====
+
+// ========================AUDIO ========================//
+// ====================================================================//
+// ===== Audio (live stream with single Play/Pause & Mute/Unmute) =====//
 const playToggle = document.getElementById('playToggle');
 const muteToggle = document.getElementById('muteToggle');
 const vol        = document.getElementById('vol');
@@ -300,6 +303,10 @@ document.getElementById('beepTest')?.addEventListener('click', async () => {
   if (el.volume === 0) el.volume = 1;
   if (el.muted) el.muted = false;
 })();
+
+//-------------------------------------------//
+//------------END OF AUDIO CODE--------------//
+//-------------------------------------------//
 
 // ===== Live polling of /api/live (proxied from OP25 /ro-now) =====
 // Single source of truth; no /ro-now anywhere in the frontend.
@@ -724,36 +731,67 @@ document.addEventListener("DOMContentLoaded", function() {
   })();
 
   // ===== Update Notification =====
-  const VERSION_KEY = "op25_last_seen_version";
-  fetch("/static/version.json", {cache: "no-store"})
-    .then(r => r.json())
-    .then(ver => {
-      const lastSeen = localStorage.getItem(VERSION_KEY);
-      if (ver.version && ver.version !== lastSeen) {
-        // Show notification (simple alert, or a custom popup/toast)
-        alert(ver.message || "A new version of this site is available!");
-        localStorage.setItem(VERSION_KEY, ver.version);
+  function checkForUpdate() {
+    const VERSION_KEY = "op25_last_seen_version";
+    fetch("/static/version.json", {cache: "no-store"})
+      .then(r => r.json())
+      .then(ver => {
+        let userVersion = localStorage.getItem(VERSION_KEY);
+        let latestVersion = ver.version;
 
-        const notice = document.getElementById("updateNotice");
-        if (notice) {
-          // Only set the message, not the whole innerHTML
-          notice.childNodes.forEach(node => {
-            if (node.nodeType === 3) notice.removeChild(node); // remove text nodes
-          });
-          // Insert message before the close button
-          const msg = document.createElement("span");
-          msg.textContent = ver.message || "A new version is available!";
-          notice.insertBefore(msg, notice.firstChild);
-
-          notice.style.display = "block";
-          setTimeout(()=>{ notice.style.display = "none"; }, 10000);
+        // If the user is on the latest version, update localStorage
+        if (userVersion !== latestVersion) {
+          if (!userVersion || window.__op25_latest_version === undefined) {
+            localStorage.setItem(VERSION_KEY, latestVersion);
+            userVersion = latestVersion;
+          }
         }
-      }
-    })
-    .catch(()=>{});
+
+        window.__op25_current_version = userVersion;
+        window.__op25_latest_version = latestVersion;
+
+        const outdatedWarning = document.getElementById("outdatedWarning");
+        if (!outdatedWarning) return;
+
+        if (latestVersion !== userVersion) {
+          // Outdated: always show prominent warning
+          outdatedWarning.style.display = "block";
+          outdatedWarning.textContent = "You are viewing an outdated version. Please refresh the page to update.";
+          outdatedWarning.classList.remove("muted");
+
+          // Show update banner if not already visible
+          const notice = document.getElementById("updateNotice");
+          if (notice && notice.style.display !== "block") {
+            notice.querySelectorAll("span").forEach(span => span.remove());
+            const msg = document.createElement("span");
+            msg.textContent = ver.message || "A new version is available!";
+            notice.insertBefore(msg, notice.firstChild);
+
+            notice.style.display = "block";
+            setTimeout(()=>{ notice.style.display = "none"; }, 10000);
+          }
+        } else {
+          // Up to date: show subtle version info
+          outdatedWarning.style.display = "block";
+          outdatedWarning.textContent = `Version: ${latestVersion}`;
+          outdatedWarning.classList.add("muted");
+          localStorage.setItem(VERSION_KEY, latestVersion);
+        }
+      })
+      .catch(()=>{
+        const outdatedWarning = document.getElementById("outdatedWarning");
+        if (outdatedWarning) outdatedWarning.style.display = "none";
+      });
+  }
+
+  // Initial check
+  checkForUpdate();
+  // Check every 30 seconds
+  setInterval(checkForUpdate, 30000);
 
   document.getElementById("updateNoticeClose")?.addEventListener("click", function() {
     document.getElementById("updateNotice").style.display = "none";
+    // No need to manually set the warning here; checkForUpdate will handle it every 30s
   });
 });
 

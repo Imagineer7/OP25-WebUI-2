@@ -2,7 +2,7 @@
 :root[data-theme="light"] {
   --bg: #f7f8fa;
   --fg: #222;
-  --muted: #6a6f7a;
+  --muted: #526181;
   --card: #fff;
   --band: #e9eaf0;
   --accent: #0078d7;
@@ -441,5 +441,28 @@ html, body{ max-width:100%; overflow-x:hidden; }
 @media (max-width: 600px) {
   .update-notice { font-size: 14px; padding: 12px 44px 12px 10px; }
   .update-notice-close { right: 8px; font-size: 22px; }
+}
+
+#outdatedWarning {
+  display: none;
+  margin: 10px 0 0 0;
+  background: #ffb84d;
+  color: #222;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+#outdatedWarning.muted {
+  background: none;
+  color: var(--muted);
+  font-weight: 400;
+  border-radius: 0;
+  padding: 0;
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  box-shadow: none;
 }
 

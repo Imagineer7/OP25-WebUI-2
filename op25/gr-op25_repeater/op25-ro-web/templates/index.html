@@ -20,10 +20,17 @@
 
   <main class="grid">
     <section class="card now">
+
+      <!-- Outdated warning goes here -->
+      <div id="outdatedWarning" style="display:none;">
+        <!-- JS will fill this -->
+      </div>
+
       <h2 class="row between">
         <span>Now Talking</span>
         <span id="nowStatus" class="badge idle">Idle</span>
       </h2>
+
 
       <div class="now-flex">
         <div class="kv">
@@ -142,12 +149,13 @@
   </div>
 </div>
 
+<div id="updateNotice" class="update-notice" style="display:none;">
+  <button id="updateNoticeClose" class="update-notice-close" aria-label="Close">&times;</button>
+</div>
+
   <!-- was inline; now external to satisfy CSP -->
 <script src="/config.js"></script>
 <script src="/static/app.js?v=3"></script>
 
-<div id="updateNotice" class="update-notice" style="display:none;">
-  <button id="updateNoticeClose" class="update-notice-close" aria-label="Close">&times;</button>
-</div>
 </body>
 </html>
