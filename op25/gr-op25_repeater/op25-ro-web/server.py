@@ -6,6 +6,7 @@ import threading
 import random
 import atexit
 import datetime
+import pytz
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
@@ -339,7 +340,9 @@ def save_stats(path, stats):
         json.dump(stats, f)
 
 def get_today_str():
-    return datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    alaska = pytz.timezone("America/Anchorage")
+    now_ak = datetime.datetime.now(alaska)
+    return now_ak.strftime("%Y-%m-%d")
 
 def poll_and_update_short_history_and_stats():
     last_stats_date = get_today_str()
