@@ -112,7 +112,16 @@ table {
 
 .btn{border:1px solid #333;background:#222;color:#ddd;padding:6px 10px;border-radius:8px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
-.dot{width:10px;height:10px;border-radius:50%;background:#777}.dot.ok{background:#2ecc71}
+.dot {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 50%;
+  background: #777;
+  flex: 0 0 auto;
+}
+.dot.ok { background: #2ecc71; }
 .foot{color:var(--muted);text-align:center;padding:10px 0}
 .tg-chip{display:inline-block;width:.8em;height:.8em;border-radius:50%;vertical-align:-.1em;margin-right:.3em;box-shadow:0 0 10px currentColor}
 .badge{
@@ -614,5 +623,16 @@ html, body{ max-width:100%; overflow-x:hidden; }
 .topbar .btn:active {
   background: rgba(61,214,255,0.18);
   color: var(--accent);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+@media (max-width: 600px) {
+  .topbar h1 {
+    font-size: 15px;
+  }
 }
 

@@ -784,6 +784,7 @@ setInterval(updateLastHeard, 1000);
 
 // ===== Icecast listener count =====
 const listenerCountEl = document.getElementById('listenerCount');
+const listenerCountNum = document.getElementById("listenerCountNum");
 const ICECAST_MOUNT = (window.ROCFG && window.ROCFG.mountHint) || "/op25.mp3";
 
 async function updateListenerCount() {
@@ -801,9 +802,9 @@ async function updateListenerCount() {
       : [];
     const mount = mounts.find(m => m.listenurl && m.listenurl.endsWith(ICECAST_MOUNT));
     const count = mount && typeof mount.listeners === "number" ? mount.listeners : 0;
-    listenerCountEl.textContent = `Listeners: ${count}`;
+    listenerCountNum.textContent = count;
   } catch (e) {
-    listenerCountEl.textContent = "Listeners: —";
+    listenerCountNum.textContent = "—";
   }
 }
 
