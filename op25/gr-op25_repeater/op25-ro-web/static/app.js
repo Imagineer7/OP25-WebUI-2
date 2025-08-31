@@ -536,12 +536,12 @@ async function mergeServerHistory() {
 
     // Find latest timestamp in user history
     const userLatestTs = userHist.length
-      ? Date.parse(`1970-01-01T${userHist[0].time}Z`) || 0
+      ? Date.parse(userHist[0].time) || 0
       : 0;
 
     // Find latest timestamp in server history
     const serverLatestTs = serverHist.length
-      ? Date.parse(`1970-01-01T${serverHist[0].time}Z`) || 0
+      ? Date.parse(serverHist[0].time) || 0
       : 0;
 
     // Only merge if server has newer calls
@@ -556,7 +556,7 @@ async function mergeServerHistory() {
         const key = [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|");
         // Optionally, you can also check duration if you want
         return !userKeys.has(key) &&
-               (Date.parse(`1970-01-01T${row.time}Z`) || 0) > userLatestTs;
+               (Date.parse(row.time) || 0) > userLatestTs;
       });
 
       if (newRows.length) {
