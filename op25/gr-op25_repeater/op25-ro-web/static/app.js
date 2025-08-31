@@ -1011,7 +1011,7 @@ function drawStatsGraphs(stats) {
   const tgids = Object.entries(stats.tgids || {});
   // Sort by call count descending
   const sorted = tgids.sort((a, b) => b[1].count - a[1].count);
-  const labels = sorted.map(([tgid, d]) => d.name ? `${d.name} (${tgid})` : tgid);
+  const labels = sorted.map(([_, d]) => d.name || "");
   const counts = sorted.map(([tgid, d]) => d.count);
   const airtimes = sorted.map(([tgid, d]) => d.airtime);
 

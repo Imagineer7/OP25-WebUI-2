@@ -346,8 +346,10 @@ def get_today_str():
 
 def poll_and_update_short_history_and_stats():
     last_stats_date = get_today_str()
+    print("Server Alaska date is:", last_stats_date)
     stats = load_stats(STATS_TODAY_PATH)
     if not stats or stats.get("date") != last_stats_date:
+        print("Rolling stats: file date =", stats.get("date"), "expected =", last_stats_date)
         stats = {"date": last_stats_date, "tgids": {}}
 
     while True:
