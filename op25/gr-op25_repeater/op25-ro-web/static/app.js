@@ -65,7 +65,7 @@ function renderHist(rows){
     else if (/AST/i.test(name)) badgeClass += " badge-ast";
 
     let audioBtn = "";
-    if (row.audioUrl) {
+    if (row.audioUrl && row.audioBlob) {
       audioBtn = `
         <button class="audio-play-btn" data-idx="${idx}" aria-label="Play recording">
           <span class="icon-play" style="display:inline;">
@@ -95,40 +95,148 @@ function renderHist(rows){
   // Add play/pause logic for all audio buttons
   histTbd.querySelectorAll(".audio-play-btn").forEach(btn => {
     btn.onclick = function() {
+      const idx = Number(this.dataset.idx);
+      const rows = window._histRows || loadHist();
+      const row = rows[idx];
       const tr = this.closest("tr");
       const audio = tr.querySelector("audio");
-      const playIcon = this.querySelector(".icon-play");
-      const pauseIcon = this.querySelector(".icon-pause");
       if (!audio) return;
 
-      // Always reset all other buttons
+      // Save original row HTML to restore later
+      const originalHTML = tr.innerHTML;
+
+      // Hide all other playing audios and restore their rows
       histTbd.querySelectorAll("audio").forEach(a => {
-        if (a !== audio) a.pause();
+        if (a !== audio) {
+          a.pause();
+          const rowEl = a.closest("tr");
+          if (rowEl && rowEl.dataset.originalHtml) {
+            rowEl.innerHTML = rowEl.dataset.originalHtml;
+            delete rowEl.dataset.originalHtml;
+          }
+        }
       });
-      histTbd.querySelectorAll(".icon-play").forEach(i => i.style.display = "inline");
-      histTbd.querySelectorAll(".icon-pause").forEach(i => i.style.display = "none");
 
-      if (audio.paused) {
-        audio.currentTime = 0;
-        audio.play();
-        playIcon.style.display = "none";
-        pauseIcon.style.display = "inline";
-      } else {
-        audio.pause();
-        playIcon.style.display = "inline";
-        pauseIcon.style.display = "none";
+      // Replace row content with waveform/seekbar UI
+      tr.dataset.originalHtml = originalHTML;
+      tr.innerHTML = `
+        <td colspan="5">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button class="seek-pause-btn" aria-label="Pause">⏸ Pause</button>
+            <input type="range" min="0" max="1" value="0" step="0.01" class="seek-bar" style="flex:1;" disabled>
+            <span class="seek-time">Loading…</span>
+            <canvas class="waveform-canvas" width="120" height="32" style="margin-left:12px;background:#222;border-radius:4px;"></canvas>
+          </div>
+        </td>
+      `;
+      // Re-attach audio element (hidden)
+      audio.setAttribute("preload", "auto"); // <-- ensure metadata loads ASAP
+      tr.appendChild(audio);
+      audio.style.display = "none";
+
+      // Play audio from start
+      audio.currentTime = 0;
+      audio.play();
+
+      // Elements
+      const seekBar = tr.querySelector(".seek-bar");
+      const seekTime = tr.querySelector(".seek-time");
+      const pauseBtn = tr.querySelector(".seek-pause-btn");
+      const canvas = tr.querySelector(".waveform-canvas");
+      let waveformDrawn = false;
+
+      // Wait for metadata before enabling seek bar and drawing waveform
+      audio.onloadedmetadata = () => {
+        seekBar.disabled = false;
+        updateSeek();
+        if (!waveformDrawn) drawWaveform();
+      };
+
+      // Update seek bar as audio plays
+      function updateSeek() {
+        if (!isFinite(audio.duration) || isNaN(audio.duration)) {
+          seekBar.value = 0;
+          seekBar.max = 1;
+          seekTime.textContent = "Loading…";
+          return;
+        }
+        seekBar.max = audio.duration;
+        seekBar.value = audio.currentTime;
+        seekTime.textContent =
+          `${Math.floor(audio.currentTime/60)}:${String(Math.floor(audio.currentTime%60)).padStart(2,"0")} / ` +
+          `${Math.floor(audio.duration/60)}:${String(Math.floor(audio.duration%60)).padStart(2,"0")}`;
       }
+      audio.ontimeupdate = updateSeek;
 
-      // Always reset to play icon when audio ends
-      audio.onended = () => {
-        playIcon.style.display = "inline";
-        pauseIcon.style.display = "none";
-      };
-      // Also reset if user pauses manually (e.g., via keyboard)
-      audio.onpause = () => {
-        playIcon.style.display = "inline";
-        pauseIcon.style.display = "none";
-      };
+      // Seek when user drags
+      seekBar.oninput = () => { audio.currentTime = seekBar.value; };
+
+      // Pause button
+      pauseBtn.onclick = () => { audio.pause(); };
+
+      // Restore row on pause/end
+      function restoreRow() {
+        if (tr.dataset.originalHtml) {
+          tr.innerHTML = tr.dataset.originalHtml;
+          delete tr.dataset.originalHtml;
+          // Re-attach play handler for this row
+          const playBtn = tr.querySelector(".audio-play-btn");
+          if (playBtn) playBtn.onclick = btn.onclick;
+        }
+      }
+      audio.onpause = restoreRow;
+      audio.onended = restoreRow;
+
+      // Draw waveform (simple, once per play)
+      function drawWaveform() {
+        if (waveformDrawn || !canvas) return;
+        waveformDrawn = true;
+        try {
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const blob = row.audioBlob;
+          if (!blob) {
+            // Optionally, show a message or just leave blank
+            ctx.fillStyle = "#888";
+            ctx.font = "10px sans-serif";
+            ctx.fillText("No waveform", 10, 20);
+            return;
+          }
+          // Use Web Audio API to decode and draw waveform
+          const reader = new FileReader();
+          reader.onload = function() {
+            const arrayBuffer = reader.result;
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ac = new AudioCtx();
+            ac.decodeAudioData(arrayBuffer, audioBuffer => {
+              const data = audioBuffer.getChannelData(0);
+              const step = Math.floor(data.length / canvas.width);
+              ctx.strokeStyle = "#3dd6ff";
+              ctx.beginPath();
+              for (let x = 0; x < canvas.width; x++) {
+                let min = 1, max = -1;
+                for (let i = 0; i < step; i++) {
+                  const v = data[x * step + i];
+                  if (v < min) min = v;
+                  if (v > max) max = v;
+                }
+                const y1 = (1 - min) * canvas.height / 2;
+                const y2 = (1 - max) * canvas.height / 2;
+                ctx.moveTo(x, y1);
+                ctx.lineTo(x, y2);
+              }
+              ctx.stroke();
+              ac.close();
+            }, err => {
+              console.error("decodeAudioData failed:", err);
+            });
+          };
+          reader.readAsArrayBuffer(blob);
+        } catch (e) {
+          console.error("Waveform error:", e);
+        }
+      }
     };
   });
 }
@@ -321,7 +429,7 @@ function ensureAudio(){
   audio.muted = false;                   // element is muted by graph anyway
   audio.volume = 1;                      // keep element at 1; we use gain node
   audio.controls = false;
-  audio.preload  = 'none';
+  audio.preload  = 'auto';
   audio.autoplay = false;
   if (vol) audio.volume = Number(vol.value || 1);
   hardResetStream();          // primes without autoplay
@@ -618,6 +726,7 @@ async function pollLive(){
           if (callAudioChunks.length && duration >= 1.0) {
             callAudioUrl = URL.createObjectURL(new Blob(callAudioChunks, {type: "audio/webm"}));
             row.audioUrl = callAudioUrl;
+            row.audioBlob = new Blob(callAudioChunks, {type: "audio/webm"});
           }
           let rows = window._histRows || loadHist();
           rows.unshift(row);
