@@ -993,6 +993,17 @@ function pollStats(which) {
 let statsCallsChart = null;
 let statsAirtimeChart = null;
 
+function getTgBarColor(name, theme) {
+  // Use the same logic as your badge classes
+  if (/EMS/i.test(name))      return theme === "light" ? "#ffb84d" : "#ffab3de6";
+  if (/PD/i.test(name))       return theme === "light" ? "#009dff" : "#2e8dccd2";
+  if (/FD/i.test(name))       return theme === "light" ? "#ff3d3d" : "#ff3d3dd0";
+  if (/DOT/i.test(name))      return theme === "light" ? "#b86bff" : "#b86bffcb";
+  if (/DNR/i.test(name))      return theme === "light" ? "#4dff5c" : "#4dff65be";
+  if (/AST/i.test(name))      return theme === "light" ? "#4d71ff" : "#4d68ffbd";
+  return theme === "light" ? "#0078d7" : "#3dd6ff";
+}
+
 function drawStatsGraphs(stats) {
   const callsCanvas = document.getElementById("statsCalls");
   const airtimeCanvas = document.getElementById("statsAirtime");
@@ -1004,7 +1015,10 @@ function drawStatsGraphs(stats) {
   const counts = sorted.map(([tgid, d]) => d.count);
   const airtimes = sorted.map(([tgid, d]) => d.airtime);
 
-  // Try Chart.js, fallback to static if not available
+  // Get theme
+  const theme = document.documentElement.getAttribute("data-theme") || "dark";
+  const barColors = sorted.map(([_, d]) => getTgBarColor(d.name || "", theme));
+
   if (window.Chart) {
     // Calls chart
     if (statsCallsChart) statsCallsChart.destroy();
@@ -1015,8 +1029,8 @@ function drawStatsGraphs(stats) {
         datasets: [{
           label: 'Calls Today',
           data: counts,
-          backgroundColor: 'rgba(61,214,255,0.7)',
-          borderColor: 'rgba(61,214,255,1)',
+          backgroundColor: barColors,
+          borderColor: barColors,
           borderWidth: 1,
         }]
       },
@@ -1043,8 +1057,8 @@ function drawStatsGraphs(stats) {
         datasets: [{
           label: 'Airtime (s) Today',
           data: airtimes,
-          backgroundColor: 'rgba(61,214,255,0.4)',
-          borderColor: 'rgba(61,214,255,1)',
+          backgroundColor: barColors,
+          borderColor: barColors,
           borderWidth: 1,
         }]
       },

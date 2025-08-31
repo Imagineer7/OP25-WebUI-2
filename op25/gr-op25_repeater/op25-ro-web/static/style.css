@@ -577,6 +577,14 @@ html, body{ max-width:100%; overflow-x:hidden; }
   color: #fff;
 }
 
+/* Light theme: talkgroup badge colors */
+:root[data-theme="light"] .badge-ems { background: #ffe5c2; color: #b85c00; border-color: #ffb84d; box-shadow: 0 0 8px 2px #ffab3d33; }
+:root[data-theme="light"] .badge-pd  { background: #dbefff; color: #005a9e; border-color: #009dff; box-shadow: 0 0 8px 2px #009dff33; }
+:root[data-theme="light"] .badge-fd  { background: #ffd6d6; color: #c00; border-color: #ff3d3d; box-shadow: 0 0 8px 2px #ff3d3d33; }
+:root[data-theme="light"] .badge-dot { background: #f3e6ff; color: #7c3aed; border-color: #b86bff; box-shadow: 0 0 8px 2px #b86bff33; }
+:root[data-theme="light"] .badge-dnr { background: #e6ffe6; color: #228822; border-color: #4dff5c; box-shadow: 0 0 8px 2px #4dff6533; }
+:root[data-theme="light"] .badge-ast { background: #e6eaff; color: #2a3a8c; border-color: #4d71ff; box-shadow: 0 0 8px 2px #4d68ff33; }
+
 /* Topbar button style: transparent, square, full height, no border-radius */
 .topbar .btn {
   background: transparent !important;
