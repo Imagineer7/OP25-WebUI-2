@@ -636,3 +636,19 @@ html, body{ max-width:100%; overflow-x:hidden; }
   }
 }
 
+.audio-play-btn {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  cursor: pointer;
+  vertical-align: middle;
+  outline: none;
+}
+.audio-play-btn svg {
+  vertical-align: middle;
+  fill: var(--accent, #3dd6ff);
+}
+.audio-play-btn:focus {
+  outline: 2px solid var(--accent, #3dd6ff);
+}
+

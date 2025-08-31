@@ -28,12 +28,32 @@ try {
 function setNet(ok){ netDot?.classList.toggle("ok", !!ok); }
 function tgColorFromId(id){ const n=parseInt(id||"0",10); const h=(n*137)%360; return `hsl(${h} 85% 60%)`; }
 
-function loadHist(){ try{ return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }catch{ return []; } }
-function saveHist(rows){ try{ localStorage.setItem(LS_KEY, JSON.stringify(rows.slice(0,MAX_ROWS))); }catch{} }
+function loadHist() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+    // Remove any lingering audioUrl fields
+    return arr.map(row => {
+      if (row.audioUrl) delete row.audioUrl;
+      return row;
+    });
+  } catch {
+    return [];
+  }
+}
+function saveHist(rows) {
+  // Remove audioUrl before saving to localStorage
+  const toSave = rows.map(row => {
+    const { audioUrl, ...rest } = row;
+    return rest;
+  });
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(toSave.slice(0, MAX_ROWS)));
+  } catch {}
+}
 function renderHist(rows){
   if (!histTbd) return;
   histTbd.innerHTML = "";
-  rows.forEach(row=>{
+  rows.forEach((row, idx) => {
     // Badge color logic
     const name = row.name || "";
     let badgeClass = "badge-name";
@@ -44,14 +64,72 @@ function renderHist(rows){
     else if (/DNR/i.test(name)) badgeClass += " badge-dnr";
     else if (/AST/i.test(name)) badgeClass += " badge-ast";
 
+    let audioBtn = "";
+    if (row.audioUrl) {
+      audioBtn = `
+        <button class="audio-play-btn" data-idx="${idx}" aria-label="Play recording">
+          <span class="icon-play" style="display:inline;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
+            </svg>
+          </span>
+          <span class="icon-pause" style="display:none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+            </svg>
+          </span>
+        </button>
+        <audio src="${row.audioUrl}" preload="none" style="display:none;"></audio>
+      `;
+    }
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${row.time ? new Date(row.time).toLocaleTimeString() : ""}</td>
       <td>${formatFreq(row.freq)||""}</td>
       <td><span class="tg-chip" style="color:${tgColorFromId(row.tgid)}"></span>${row.tgid||""}</td>
       <td><span class="${badgeClass}">${name}</span></td>
-      <td>${row.duration||""}</td>`;
+      <td>${row.duration||""} ${audioBtn}</td>`;
     histTbd.appendChild(tr);
+  });
+
+  // Add play/pause logic for all audio buttons
+  histTbd.querySelectorAll(".audio-play-btn").forEach(btn => {
+    btn.onclick = function() {
+      const tr = this.closest("tr");
+      const audio = tr.querySelector("audio");
+      const playIcon = this.querySelector(".icon-play");
+      const pauseIcon = this.querySelector(".icon-pause");
+      if (!audio) return;
+
+      // Always reset all other buttons
+      histTbd.querySelectorAll("audio").forEach(a => {
+        if (a !== audio) a.pause();
+      });
+      histTbd.querySelectorAll(".icon-play").forEach(i => i.style.display = "inline");
+      histTbd.querySelectorAll(".icon-pause").forEach(i => i.style.display = "none");
+
+      if (audio.paused) {
+        audio.currentTime = 0;
+        audio.play();
+        playIcon.style.display = "none";
+        pauseIcon.style.display = "inline";
+      } else {
+        audio.pause();
+        playIcon.style.display = "inline";
+        pauseIcon.style.display = "none";
+      }
+
+      // Always reset to play icon when audio ends
+      audio.onended = () => {
+        playIcon.style.display = "inline";
+        pauseIcon.style.display = "none";
+      };
+      // Also reset if user pauses manually (e.g., via keyboard)
+      audio.onpause = () => {
+        playIcon.style.display = "inline";
+        pauseIcon.style.display = "none";
+      };
+    };
   });
 }
 
@@ -397,7 +475,14 @@ function applyNow(n) {
   // Update storage (single source of truth)
   const rows = loadHist();
   rows.unshift(row);
-  if (rows.length > MAX_ROWS) rows.length = MAX_ROWS;
+
+  // Revoke audio blobs for entries that are being dropped
+  while (rows.length > MAX_ROWS) {
+    const dropped = rows.pop();
+    if (dropped && dropped.audioUrl) {
+      URL.revokeObjectURL(dropped.audioUrl);
+    }
+  }
   saveHist(rows);
 
   // Re-render table from storage
@@ -482,6 +567,35 @@ async function pollLive(){
         source: n.source || "",
         enc: n.enc || ""
       };
+
+      // --- Start recording only when audio is playing ---
+      if (audio && audio.captureStream) {
+        const startRecorder = () => {
+          try {
+            const stream = audio.captureStream();
+            callRecorder = new MediaRecorder(stream);
+            callAudioChunks = [];
+            callRecorder.ondataavailable = e => { if (e.data.size > 0) callAudioChunks.push(e.data); };
+            callRecorder.start();
+            callAudioUrl = null;
+          } catch (e) {
+            console.warn("MediaRecorder error:", e);
+            callRecorder = null;
+            callAudioChunks = [];
+            callAudioUrl = null;
+          }
+        };
+        if (!audio.paused) {
+          startRecorder();
+        } else {
+          // Wait for audio to start playing
+          const onPlay = () => {
+            startRecorder();
+            audio.removeEventListener('playing', onPlay);
+          };
+          audio.addEventListener('playing', onPlay);
+        }
+      }
     }
 
     // When a call ends, append to history
@@ -497,14 +611,52 @@ async function pollLive(){
         enc: callStartDetails.enc,
         duration: duration.toFixed(1) + "s"
       };
-      const rows = loadHist();
-      rows.unshift(row);
-      if (rows.length > MAX_ROWS) rows.length = MAX_ROWS;
-      saveHist(rows);
-      renderHist(rows);
 
+      // Only attach audio if duration >= 1s
+      if (callRecorder) {
+        callRecorder.onstop = () => {
+          if (callAudioChunks.length && duration >= 1.0) {
+            callAudioUrl = URL.createObjectURL(new Blob(callAudioChunks, {type: "audio/webm"}));
+            row.audioUrl = callAudioUrl;
+          }
+          let rows = window._histRows || loadHist();
+          rows.unshift(row);
+
+          // Revoke blobs for dropped entries
+          while (rows.length > MAX_ROWS) {
+            const dropped = rows.pop();
+            if (dropped && dropped.audioUrl) {
+              URL.revokeObjectURL(dropped.audioUrl);
+            }
+          }
+          window._histRows = rows;
+
+          saveHist(rows);
+          renderHist(rows);
+        };
+        callRecorder.stop();
+        
+      } else {
+        let rows = window._histRows || loadHist();
+        rows.unshift(row);
+
+        while (rows.length > MAX_ROWS) {
+          const dropped = rows.pop();
+          if (dropped && dropped.audioUrl) {
+            URL.revokeObjectURL(dropped.audioUrl);
+          }
+        }
+        window._histRows = rows;
+
+        saveHist(rows);
+        renderHist(rows);
+      }
       callStartTs = null;
       callStartDetails = null;
+      callRecorder = null;
+      callAudioChunks = [];
+      callAudioUrl = null;
+      return;
     }
 
     // While a call is active, update the live duration display
@@ -1114,3 +1266,30 @@ function drawBarGraph(canvas, labels, values, title) {
     ctx.fillText(values[i].toFixed(1), leftPad + barW + 8, y + barH * 0.7);
   }
 }
+
+// ===== Live recording =====
+// (Experimental: not yet wired to UI)
+
+// Audio recorder setup
+let callRecorder = null;
+let callAudioChunks = [];
+let callAudioUrl = null;
+
+// Toggle recording
+async function toggleRecording() {
+  if (callRecorder) {
+    // Stop recording
+    callRecorder.stop();
+    callRecorder = null;
+    return;
+  }
+
+  // Start recording
+  const stream = audio.captureStream();
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+  callRecorder = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) callAudioChunks.push(e.data);
+    };
+  }
