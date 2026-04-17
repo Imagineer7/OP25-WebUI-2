@@ -3,392 +3,23 @@
 
 :root {
 /* 	radius for control buttons */
-  --border-radius: var(--radius-sm);
+  --border-radius: 0px;
   
 /*  width of ui columns */
 /*  this needs to stay at 750 right now */
-/*  --ui-col-width: 750px; */
+  --ui-col-width: 750px;
   
 /* values   */
   --values: #f0f;
-  /* Base theme */
-  --bg: #0f1115;
-  --panel: #161a22;
-  --panel-2: #1c2130;
-  --text: #e6e7ea;
-  --muted: #445b8d;
-  --accent: #00ffff;      /* user-changable (wired to your color picker) */
-  --accent-2: #66aaff;
-  --header-bg:#1e1e1e;
-  --header-fg:#e6e6e6;
-  --card-bg:#151515;
-  --card-fg:#dcdcdc;
-  --row-banding:#202020;
-
-  /* Card opacity: allows global transparency control for cards */
-  --card-opacity: 1;
-  --card-bg-alpha: 1; /* default fully opaque */
-  --card-bg-rgb: 21, 21, 21;
-  --card-bg-alpha: 1;
-
-  /* TG glow */
-  --tg-glow-px:10px;
-  --tg-glow-style:outline;     /* outline | softfill */
-
-  /* Elevation & radii */
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow-1: 0 4px 16px rgba(0,0,0,.25);
-  --shadow-2: 0 8px 28px rgba(0,0,0,.35);
-
-  /* Motion */
-  --ease: cubic-bezier(.22,.61,.36,1);
-  --dur-fast: 120ms;
-  --dur: 200ms;
-  --dur-slow: 320ms;
-
-  /* Layout width for tables/columns if you want consistent margins */
-  --ui-col-width: min(1200px, 96vw);
 }
 
-body {
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0,0,0,0.3)), /* dark overlay */
-    url("backdrop6.png") no-repeat center center fixed,
-    radial-gradient(1200px 600px at 25% -10%, #151b27 0%, var(--bg) 45%) fixed;
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-position: center center, center center, center center;
-  background-size: cover, cover, cover;
-  background-attachment: fixed, fixed, fixed;
-  background-color: #000; /* fallback for very old browsers */
-  color: var(--text);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  margin: 0 0 10px 0;
-  padding: 0;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* ===== Talkgroup highlighting ===== */
-.tg-row {
-  /* we'll set this from JS per row: e.g. "34, 170, 255" */
-  --tg-rgb: 102, 170, 255;
-
-  position: relative;
-  background: rgba(var(--tg-rgb), 0.08);
-  border-left: 3px solid rgba(var(--tg-rgb), 0.8);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--tg-rgb), 0.08),
-    inset 0 0 18px rgba(var(--tg-rgb), 0.15);
-  transition: background 180ms var(--ease), box-shadow 180ms var(--ease);
-}
-.tg-row:hover {
-  background: rgba(var(--tg-rgb), 0.12);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--tg-rgb), 0.12),
-    inset 0 0 22px rgba(var(--tg-rgb), 0.22);
-}
-
-/* Current (now talking) area glow */
-.current-tg {
-  --tg-rgb: 102, 170, 255;
-  box-shadow: 0 0 24px rgba(var(--tg-rgb), 0.25) inset;
-  border-radius: var(--radius);
-}
-.current-tg .info-large,
-.current-tg .trunk-value {
-  text-shadow: 0 0 8px rgba(var(--tg-rgb), 0.45);
-}
-.current-tg .info-large, .current-tg .trunk-value { text-shadow: 0 0 8px rgba(102,170,255,.45); }
-
-/* Idle = gray glow */
-.tg-idle {
-  box-shadow: inset 0 0 20px #5f53a3 !important;
-}
-
-/* Clear = green glow */
-.tg-clear {
-  box-shadow: inset 0 0 20px #00cc66 !important;
-}
-
-/* Encrypted = red glow */
-.tg-encrypted {
-  box-shadow: inset 0 0 20px #cc0000 !important;
-}
-
-/* Little color chip you can show beside TG names (optional) */
-.tg-chip {
-  display:inline-block; width:.85em; height:.85em; border-radius:50%;
-  margin-right:.35em; vertical-align:middle;
-  background: rgb(var(--tg-rgb));
-  box-shadow: 0 0 10px rgba(var(--tg-rgb), .55);
-}
-
-.header, .popup-header{
-  background: var(--header-bg);
-  color: var(--header-fg);
-}
-.card, .compact-table {
-  background: linear-gradient(
-    180deg,
-    rgba(var(--card-bg-rgb), var(--card-bg-alpha)) 0%,
-    rgba(var(--card-bg-rgb), var(--card-bg-alpha)) 100%
-  );
-  color: var(--card-fg);
-}
-
-.compact-table tr:nth-child(even){
-  background: var(--row-banding);
-}
-
-/* Accent examples */
-a, .small-button:hover, .plot-active { color: var(--accent); }
-.value, .trunk-value { color: var(--values); }
-
-/* Talkgroup highlight (rows you mark with applyTgRowHighlight) */
-.tg-row{
-  /* we’ll compute the rgb via inline style --tg-rgb */
-  --tg-outline: 0 0 var(--tg-glow-px) rgba(var(--tg-rgb), .85);
-  --tg-fill:    0 0 calc(var(--tg-glow-px) * 0.75) rgba(var(--tg-rgb), .35);
-
-  /* outline vs softfill */
-  box-shadow:
-    0 0 0 transparent,
-    0 0 0 transparent;
-}
-.tg-row[data-glow="outline"]{
-  box-shadow: var(--tg-outline), inset 0 0 0 rgba(0,0,0,0);
-}
-.tg-row[data-glow="softfill"]{
-  box-shadow: var(--tg-fill), inset 0 0 calc(var(--tg-glow-px) * .5) rgba(var(--tg-rgb), .25);
-}
-
-/* Current TG chip/container (if you use applyCurrentTgHighlight) */
-#currentTgChip{
-  --tg-outline: 0 0 var(--tg-glow-px) rgba(var(--tg-rgb), .85);
-  --tg-fill:    0 0 calc(var(--tg-glow-px) * 0.75) rgba(var(--tg-rgb), .35);
-}
-#currentTgChip[data-glow="outline"]{ box-shadow: var(--tg-outline); }
-#currentTgChip[data-glow="softfill"]{ box-shadow: var(--tg-fill); }
-
-
-/* Generic cards (wrap your tables/areas in a .card container) */
-.card {
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-1);
-  overflow: clip; /* nicer rounded corners for inner children */
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-2);
-  border-color: rgba(255,255,255,0.12);
-}
-
-.card .inner-table,
-.card .compact-table {
-  background: transparent !important;
-}
-.card .inner-table td,
-.card .inner-table th,
-.card .compact-table td,
-.card .compact-table th {
-  border-color: rgba(255,255,255,0.06) !important;
-}
-
-#callHistoryContainer .compact-table td:nth-child(2),
-#callHistoryContainer .compact-table td:nth-child(5) {
-  /* likely Sys and Talkgroup name columns */
-  max-width: 12rem;
-}
-#callHistoryContainer .compact-table td:nth-child(2),
-#callHistoryContainer .compact-table td:nth-child(5) {
-  /* truncate with ellipsis */
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* Modern section headers */
-.th-section {
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-weight: 600;
-  letter-spacing: .02em;
-}
-
-:focus { outline: none; }
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: calc(var(--radius-sm) + 2px);
-}
-
-/* Top nav */
-.top-nav-container {
-  position: sticky; top: 0; z-index: 50;
-  width: var(--ui-col-width);
-  margin: 0 auto 10px;
-  backdrop-filter: blur(8px);
-  background: linear-gradient(180deg, rgba(10,12,18,0.8), rgba(10,12,18,0.35));
-  border: 1px solid rgba(255,255,255,0.06);
-  box-sizing: border-box;
-}
-.top-nav .nav-item {
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-}
-.top-nav .nav-item:hover,
-.top-nav .nav-item:focus-visible {
-  background: rgba(255,255,255,0.06);
-  outline: none;
-}
-
-.top-nav .nav-item:focus-visible {
-  background: rgba(255,255,255,0.08);
-}
-
-.top-nav { justify-content: center; gap: 16px; }
-.nav-right { display: none; } /* hides the logo block if you don’t want it offsetting the layout */
-
-/* Buttons */
-.button-3d, .small-button, .tune-button, #presetButtons button {
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
-  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
-}
-.button-3d:active,
-.small-button:active,
-.tune-button:active,
-#presetButtons button:active {
-  transform: translateY(1px);
-  filter: brightness(0.95);
-}
-.button-3d:hover, .small-button:hover, .tune-button:hover, #presetButtons button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.14);
-  box-shadow: var(--shadow-1);
-}
-.button-3d:active, .small-button:active, .tune-button:active, #presetButtons button:active {
-  transform: translateY(0);
-}
-
-/* Accent states */
-.trunk-value, .small-value, .info-large strong {
-  color: var(--accent);
-}
-
-/* Tables look cleaner */
-.outer-table, .inner-table, .compact-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: transparent;
-}
-.outer-table td, .outer-table th,
-.inner-table td, .inner-table th,
-.compact-table td, .compact-table th {
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.outer-table,
-.inner-table,
-.compact-table {
-  table-layout: auto; /* default, but make explicit */
-}
-.compact-table tbody tr:hover {
-  background: rgba(255,255,255,0.03);
-}
-
-/* Utilities */
-.text-center  { text-align: center; }
-.text-right   { text-align: right; }
-.nowrap       { white-space: nowrap; }
-.wrap         { white-space: normal; word-break: break-word; }
-.truncate     { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Consistent vertical centering */
-.outer-table th, .outer-table td,
-.inner-table th, .inner-table td,
-.compact-table th, .compact-table td {
-  vertical-align: middle;
-  text-align: center;
-}
-
-/* Slightly smaller padding so more text fits */
-.compact-table th, .compact-table td { padding: 4px 6px; }
-.inner-table td { padding: 4px 6px; }
-
-/* Collapsible sections (CSS-only, with <details>) */
-details.collapsible {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, var(--panel), var(--panel-2));
-  box-shadow: var(--shadow-1);
-  transition: border-color var(--dur) var(--ease);
-}
-details.collapsible summary {
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  padding: 10px 12px;
-  font-weight: 600;
-}
-details.collapsible[open] {
-  border-color: rgba(255,255,255,0.14);
-}
-details.collapsible .content {
-  padding: 10px 12px 14px;
-  animation: fadeSlide var(--dur) var(--ease);
-}
-
-details.collapsible summary::-webkit-details-marker { display: none; }
-details.collapsible summary::after {
-  content: "▸";
-  display: inline-block;
-  margin-left: .5rem;
-  transition: transform var(--dur) var(--ease);
-  opacity: .8;
-}
-details.collapsible[open] summary::after {
-  transform: rotate(90deg);
-}
-
-@keyframes fadeSlide {
-  from { opacity: 0; transform: translateY(-4px) }
-  to   { opacity: 1; transform: translateY(0) }
-}
-
-/* Subtle image fade-in for plots when src changes */
-.plot-image {
-  border-radius: var(--radius);
-  box-shadow: 0 2px 10px rgba(0,0,0,.25);
-  opacity: 0;
-  transition: opacity var(--dur) var(--ease);
-}
-.plot-image.ready {
-  opacity: 1;
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
-}
 
 /* Overall body styles */
 body {
   background-color: #111;
   color: #E0E0E0;
   font-family: Arial, Helvetica, sans-serif;
-  margin: 0 0 10px 0;
+  margin: 5px 5px 20px 20px;
   padding: 0;
 }
 
@@ -408,18 +39,22 @@ a:hover {
  text-decoration: underline;
 }
 
+.plot-image {
+  filter: invert(1);
+  width: 300px;
+}
+
 .plot-active {
   border: 1px solid #66ccff !important;
 }
 
 /* Outer container/table set to 750 wide */
 .outer-table {
-  width: 100%;
+  width: var(--ui-col-width);
   margin: 0px 0px 10px 0px;
   border: 1px solid #444;
   background-color: #111;                               /* 222 */
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
 }
 
 
@@ -540,21 +175,9 @@ input[type="checkbox"]:checked::after {
 }
 
 .inner-table td {
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid #555;
   padding: 3px;
 }
-
-#main-display .inner-table td:first-child { /* big text area */
-  white-space: normal;
-  word-break: break-word;
-}
-#main-display .inner-table td:last-child {  /* numeric side */
-  white-space: nowrap;
-  text-align: center;
-}
-
-/* Larger line-height so titles don't look cramped */
-.info-large { line-height: 1.25; }
 
 /* New class for larger, thin font info for System, Talkgroup, and Source */
 .info-large {
@@ -744,17 +367,6 @@ input[type="checkbox"]:checked::after {
   border-right: none;
 }
 
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* polish for horizontal scrollbar area inside cards */
-.card .table-responsive {
-  border-radius: calc(var(--radius) - 2px);
-}
-
 /* NEW: 3D-style button with gradient and reversed hover */
 .button-3d {
   background: linear-gradient(to bottom, #444, #333);
@@ -791,7 +403,7 @@ input[type="checkbox"]:checked::after {
   cursor: pointer;
   font-size: 0.8em;     /* Smaller font */
   text-align: center;   /* Center the text */
-  border-radius: var(--radius-sm);
+  border-radius: 1px;
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -837,6 +449,13 @@ input[type="checkbox"]:checked::after {
   background-color: #3399ff;
 }
 
+
+#callHistory thead th{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, #333, #222, #333);   /* MUST be set so rows don't show through */
+}
 /* 
 .logo {
   width: auto;
@@ -853,6 +472,18 @@ input[type="checkbox"]:checked::after {
   height: 100px; /* or whatever fits your logo height */
   background-color: #222; /* match panel if needed */
   padding: 0;
+}
+
+
+.top-nav-container {
+  width: var(--ui-col-width);
+  margin: 0px 0px 10px 0px;
+  background-color: #222;
+  border-top: 1px solid #555;
+  border-bottom: 1px solid #555;
+  border-left: 1px solid #555;
+  border-right: 1px solid #555;
+  box-sizing: border-box;  
 }
 
 .top-nav {
@@ -879,7 +510,7 @@ input[type="checkbox"]:checked::after {
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.06);
+  background-color: #888;
 }
 
 .nav-right {
@@ -899,20 +530,29 @@ input[type="checkbox"]:checked::after {
   display: block;
 }
 
+.th-section {
+  text-align: center;
+  background: linear-gradient(to bottom, #333, #111);
+  border-collapse: collapse;
+  border-radius: 3px;
+  font-size: 14px;
+  padding: 6px;
+  color: #999
+}
+
+
 .warning-box {
   border: 1px solid #aa4a44;
   background: linear-gradient(to bottom, #662222, #441111);
   color: #ffdddd;
   padding: 12px;
   margin: 0;
-  max-width: var(--ui-col-width);
   width: 100%;
-  border-radius: var(--radius);
+/*   border-radius: 6px; */
   display: none;
   align-items: center; /* ← vertically center content */
   gap: 10px;           /* space between icon and text, if needed */
   font-size: 1rem;
-  box-shadow: 0 0 6px var(--accent);
 }
 
 
@@ -967,48 +607,6 @@ input[type="checkbox"]:checked::after {
 }
 
 
-.compact-table th,
-.th-section {
-  background: var(--header-bg);
-  color: var(--header-fg);
-}
-
-/* Frequency/Channels/Adjacent tables often use a <th class="th-section"> row */
-.compact-table .th-section {
-  background: var(--header-bg);
-  color: var(--header-fg);
-}
-
-/* Row banding across all data tables */
-.compact-table tbody tr:nth-child(even) {
-  background: var(--row-banding);
-}
-
-/* General table text inherits the card text color */
-.compact-table,
-.compact-table td {
-  color: var(--card-fg);
-}
-
-/* Optional: give tables a “card” feel using your card background */
-.compact-table {
-  background: var(--card-bg);
-}
-
-/* If you have any page-level header bar, cover common names */
-.header,           /* if you use this */
-.topbar,           /* or this */
-#top-bar,          /* or this */
-.page-header {     /* or this */
-  background: var(--header-bg);
-  color: var(--header-fg);
-}
-
-/* Keep the popup header using the same variables */
-.popup-header {
-  background: var(--header-bg);
-  color: var(--header-fg);
-}
 
 #aboutPopupContainer {
   display: none;
@@ -1046,55 +644,6 @@ input[type="checkbox"]:checked::after {
   border: 2px solid var(--values); 
   box-shadow: 0 0 3px var(--values), 0 0 7px var(--values);
 }
-
-/* 1) Make all the main “cards” pick up --card-bg */
-#channels-container,
-#adjacentSitesContainer,
-#patchesContainer,
-#frequenciesTable,        /* this is a wrapper DIV in your JS */
-#channelInfo,             /* channels table wrapper */
-#callHistoryWrapper,      /* if you have a wrapper div */
-.config-section,          /* config accordion cards */
-.settings-popup-content { /* settings card itself */
-  background-color: var(--card-bg);
-}
-
-/* 2) Tables: let the table show the card bg, and keep headers/banding */
-.compact-table {
-  background-color: var(--card-bg);
-}
-
-.compact-table th,
-.th-section {
-  background-color: var(--header-bg);
-  color: var(--header-fg);
-}
-
-/* Cells should be transparent so the table/card bg shows through */
-.compact-table td {
-  background-color: transparent;
-  color: var(--card-fg);
-}
-
-/* Row banding uses your var (only on body rows) */
-.compact-table tbody tr { background-color: transparent; }
-.compact-table tbody tr:nth-child(even) {
-  background-color: var(--row-banding);
-}
-
-/* 3) Kill any legacy hardcoded dark backgrounds that hide the var */
-.compact-table,
-#channels-container,
-#adjacentSitesContainer,
-#patchesContainer,
-#frequenciesTable,
-#channelInfo,
-.config-section,
-.settings-popup-content {
-  background: var(--card-bg) !important; /* last resort, wins over old rules */
-}
-
-
 
 
 
@@ -1195,26 +744,22 @@ input[type="checkbox"]:checked::after {
 }
 
 .row {
-  display: grid;
-  grid-template-columns: 1.2fr .9fr;
-  gap: 16px;
-  width: var(--ui-col-width);
-  margin: 12px auto;
-}
-@media (max-width: 1100px) {
-  .row { grid-template-columns: 1fr; }
+  margin-left: -10px;
+  margin-right: -10px;
 }
 
 /* Two columns floated side-by-side with spacing */
 .column {
-  width: auto;
-  min-width: 0;   /* allow children to shrink nicely */
+  float: left;
+  width: 50%;
   padding: 0 0px; /* horizontal padding creates the gap */
 }
 
 /* Clear floats */
 .row::after {
-  content: none;
+  content: "";
+  display: table;
+  clear: both;
 }
 
 /* Stack columns vertically on small screens */
@@ -1229,65 +774,142 @@ input[type="checkbox"]:checked::after {
   }
 }
 
-.card .outer-table {
-  border: 0 !important;
-  background: transparent !important;
-}
 
 /* END 2 COLUMN LAYOUT ELEMENTS */
 
-.top-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-}
-.top-nav .nav-left, .top-nav .nav-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+#subscribers td:nth-child(4),
+#subscribers td:nth-child(6) {
+  text-align: left;
 }
 
-/* Make cards and columns fit small screens */
-@media (max-width: 700px) {
-  .row, .column, .card, .outer-table, .settings-popup-content, .about-popup-content {
-    width: 100vw !important;
-    min-width: 0 !important;
-    max-width: 100vw !important;
-    box-sizing: border-box;
-  }
-  .card, .settings-popup-content, .about-popup-content {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    border-radius: 0.5em;
-  }
-  .top-nav-container, .top-nav {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    box-sizing: border-box;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-  .top-nav .nav-left, .top-nav .nav-right {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .top-nav .nav-item {
-    font-size: 1em;
-    padding: 6px 8px;
-  }
-  .footer, footer {
-    width: 100vw !important;
-    min-width: 0 !important;
-    max-width: 100vw !important;
-    box-sizing: border-box;
-  }
-  body, .card, .outer-table, .settings-popup-content, .about-popup-content {
-    font-size: 0.98em;
-    padding: 4px !important;
-  }
-  .main-info, .left-panel, .right-logo {
-    padding: 2px !important;
-  }
+
+/* Subscriber Search modal */
+#searchSubsPopup {
+  display: none;            /* default hidden */
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.7);
 }
+
+#searchSubsPopup.show {
+  display: flex;            /* visible when open */
+}
+
+.search-popup-content {
+  background-color: #333;
+  padding: 20px;
+  border-radius: 12px;
+  max-height: 80vh;
+  margin: 5% auto;
+  overflow-y: auto;
+  color: #fff;
+  font-family: sans-serif;
+  animation: popupFade 0.1s ease;
+  width: 70vw;         /* 90% of viewport width */
+  max-width: 1400px;   /* cap on large screens */
+  min-width: 700px;    /* prevent narrow layout */  
+
+  /* Glowing border */
+  border: 2px solid var(--values); 
+  box-shadow: 0 0 3px var(--values), 0 0 7px var(--values);
+}
+
+.dark-input {
+    background: linear-gradient(to bottom, #000000, #2a2a2a);
+    color: #ffffff;
+    border: 0px solid #555;
+    width: 125px;
+    padding: 4px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    outline: none;
+}
+
+.dark-input::placeholder {
+    color: #aaa;
+}
+
+.dark-input:focus {
+    border-color: #888;
+}
+
+.filter-input-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.filter-input-wrap input {
+  padding-left: 28px; /* space for icon */
+}
+
+.filter-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ccc;
+  pointer-events: none;
+}
+
+
+#subSearchTable thead th{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, #333, #222, #333);
+}
+
+#subSearchTable th[data-sort]{ cursor: pointer; }
+#subSearchTable th{ user-select: none; }
+
+
+
+
+#subscribers thead th{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, #333, #222, #333);
+}
+
+#subscribers th[data-sort]{ cursor: pointer; }
+#subscribers th{ user-select: none; }
+
+/* Seen Talkgroups popup: behave like a real modal overlay */
+#seenTgPopup{
+	display:none;
+	position:fixed;
+	inset:0;
+	z-index:9999;
+	background:rgba(0,0,0,0.6);
+	align-items:center;
+	justify-content:center;
+}
+
+#seenTgPopup.show{
+	display:flex;
+}
+
+.filter-clear {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+.filter-clear:hover {
+  color: #fff;
+}
+
+#seenTgTable thead th{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, #333, #222, #333);
+}
+  

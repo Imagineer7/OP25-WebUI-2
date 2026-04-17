@@ -22,7 +22,7 @@ DEBIAN_FRONTEND=noninteractive
 
 # Parse args
 usage() {
-  cat <<EOF
+  cat <<EOH
 Usage: $0 [-f] [-S] [-I] [-a pass] [-m mount] [-U user] [-C /path/config.json]
 
   -f           Force noninteractive apt (-y)
@@ -32,7 +32,7 @@ Usage: $0 [-f] [-S] [-I] [-a pass] [-m mount] [-U user] [-C /path/config.json]
   -m <mount>   Icecast mount name (default: op25.mp3)
   -U <user>    Create a systemd service for OP25 running as <user>
   -C <config>  Path to OP25 JSON config used by the service
-EOF
+EOH
 }
 
 while getopts ":fSIa:m:U:C:h" opt; do
@@ -58,7 +58,7 @@ APPS_DIR="$REPO_DIR/op25/gr-op25_repeater/apps"
 MULTI_RX="$APPS_DIR/multi_rx.py"
 [ -z "$CONFIG_JSON" ] && CONFIG_JSON="$REPO_DIR/op25.json"
 
-# ---- Base GNURadio / build (unchanged) ----
+# ---- Base GNURadio / build ----
 GR_VER=$(apt list gnuradio 2>/dev/null | grep -m 1 gnuradio | cut -d' ' -f2 | cut -d'.' -f1,2)
 echo "Identified GNURadio version ${GR_VER}"
 if [ "${GR_VER}" = "3.10" ]; then
@@ -119,21 +119,21 @@ if [ "$INSTALL_ICECAST" = true ]; then
   fi
 fi
 
-# blacklist rtl dtv drivers (unchanged)
+# blacklist rtl dtv drivers
 if [ ! -f /etc/modprobe.d/blacklist-rtl.conf ]; then
   echo "====== installing blacklist-rtl.conf"
   echo "====== please reboot before running op25"
   sudo install -m 0644 ./blacklist-rtl.conf /etc/modprobe.d/
 fi
 
-# fix borked airspy udev rule (unchanged)
+# fix borked airspy udev rule
 if [ -f /lib/udev/rules.d/60-libairspy0.rules ]; then
   echo "====== fixing libairspy0 udev rule"
   echo "====== please reboot before running op25"
   sudo sed -i 's^TAG+="uaccess"^MODE="660", GROUP="plugdev"^g' /lib/udev/rules.d/60-libairspy0.rules
 fi
 
-# Build/install OP25 (unchanged)
+# Build/install OP25
 rm -rf build
 mkdir build
 cd build
