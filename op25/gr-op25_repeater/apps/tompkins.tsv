@@ -1,104 +1,997 @@
-1 	Range Test 
-2 	Range Test 
-7 	Range Test 
-55001 	Fire/EMS 
-55002 	TC Fire Disp 
-55003 	Ithaca FD 
-55004 	MED A 
-55005 	MED B 
-55050 	Hosp Multi 
-55051 	CMC 
-55052 	CRMC 
-55075 	Ithaca FD/FG 
-55100 	All Call 
-55101 	Brooktondale 
-55102 	Speedsville 
-55103 	Salterville 
-55150 	All Call 
-55152 	West Danby 
-55175 	All Call 
-55177 	Etna 
-55178 	Freeville 
-55179 	Varna 
-55180 	McClean 
-55201 	Groton 
-55202 	Enfield 
-55203 	Newfield 
-55204 	Trumansburg 
-55205 	CayugaHeight 
-55206 	Lansing 
-55250 	EmrgAllCall 
-55251 	Ithaca Clg 
-55252 	Cornell U 
-55253 	Bangs 
-55275 	COMMON 
-55276 	PRIORITY 
-55300 	OPS EAC 
-55301 	OPS 1 
-55302 	OPS 2 
-55303 	OPS 3 
-55304 	OPS 4 
-55305 	OPS 5 
-55306 	OPS 6 
-55307 	OPS 7 
-55308 	OPS 8 
-55309 	OPS 9 
-55310 	OPS 10 
-55311 	ARPTOPS 
-55325 	F-P OPS 
-55326 	EOC OPS 
-55327 	Fire Paging 
-55350 	TC All Call 
-55351 	TCSO Disp 
-55352 	Ithaca PD 
-55375 	TC Emrg Car 
-55376 	TCSO Car/Car 
-55377 	Ithaca Car 
-55379 	NYSP C-C 
-55380 	IC PDcar/car 
-55381 	CU PDcar/car 
-55401 	CU PD Disp 
-55402 	IC PD Disp 
-55450 	All Call 
-55451 	Police Ops 1 
-55452 	Police Ops 2 
-55475 	Special Ops 
-55476 	CINT 4 
-55477 	SWAT 1 
-55478 	SWAT 2 
-55479 	SWAT 3 
-55501 	Trumansburg 
-55501 	CayugaHts 
-55502 	Dryden PD 
-55504 	Groton 
-55505 	NYSP 
-55506 	ParksDept PD 
-55551 	County Hall 
-55552 	Airport Sec 
-55600 	EmergAllCall 
-55601 	HWY Central 
-55602 	HWY East 
-55603 	HWY West 
-55700 	All Call 
-55701 	SCHOOLS CNTR 
-55702 	SCHOOLS EAST 
-55703 	SCHOOLS WEST 
-55800 	TCAT ALLCALL 
-55801 	TCAT CNTR 
-55802 	TCAT EAST 
-55803 	TCAT WEST 
-55901 	CountyHealth 
-55902 	IthacaHealth 
-55950 	EmrgAllCall 
-55951 	Local Gov 
-55952 	Dryden DPW 
-55953 	Lansing 
-55954 	Groton 
-55955 	Ithaca 
-55956 	Danby DPW 
-55957 	Ulyssess 
-55958 	Enfield 
-55959 	Newfield 
-56001 	Ithaca Dctvs 
-56024 	Ithaca Dctvs 
-56025 	MIDSTATE 
+1	LMR Default/Test	Default/Testing
+11201	ADOT Anchor	Anchorage
+11202	ADOT Girdwd	Girdwood
+11203	ADOT Silvert	Silvertip
+11204	ADOT Cascade	Cascade
+11205	ADOT Chulitn	Chulitna
+11207	ADOT Palmer	Palmer
+11208	ADOT Talkeet	Talkeetna
+11209	ADOT Willow	Willow
+11210	ADOT Track 1	Track 1
+11212	ADOT Flag 1	Flag 1
+11213	ADOT Flag 2	Flag 2
+11214	ADOT Avalan1	Avalanche 1
+11215	ADOT Ops 1	Ops 1
+11217	ADOT Homer	Homer
+11218	ADOT Kachemk	Kachemak Bay
+11219	ADOT Kodiak	Kodiak
+11221	ADOT Kenai	Kenai
+11222	ADOT Quartz	Quartz Creek
+11223	ADOT Seldovi	Seldovia
+11224	ADOT Seward	Seward
+11225	ADOT Soldotn	Soldotna
+11226	ADOT Ops 2	Ops 2
+11228	ADOT Flag 3	Flag 3
+11229	ADOT Flag 4	Flag 4
+11230	ADOT Avalan2	Avalanche 2
+11231	ADOT Avalan3	Avalanche 3
+11233	ADOT Chitina	Chitina
+11234	ADOT Ernesti	Ernestine
+11235	ADOT Nelchin	Nelchina
+11236	ADOT Paxson	Paxson
+11238	ADOT Tazlina	Tazlina
+11239	ADOT Cordova	Cordova
+11240	ADOT Thompsn	Thompson Pass
+11241	ADOT Valdez	Valdez
+11242	ADOT Track 5	Track 5
+11244	ADOT Flag 5	Flag 5
+11245	ADOT Flag 6	Flag 6
+11246	ADOT Avalan4	Avalanche 4
+11248	ADOT Bridges	Bridge Maintenance
+11281	CVE Region B	Region B - Southcentral
+11282	CVE Region E	Region E - Kenai
+11287	CVE Statewide	Statewide
+11350	Emerg Ops	Emergency Operations
+11351	Emerg Ops Main	Emergency Operations Main
+11352	Emerg Ops Tac 1	Emergency Operations Tac
+11353	Emerg Ops Tac 2	Emergency Operations Tac
+11354	Emerg Ops Tac 3	Emergency Operations Tac
+11371	AK Defense 49th1	Alaska State Defense Force, 49th Brigade Main
+11372	AK Defense 49th2	Alaska State Defense Force, 49th Brigade Training
+11373	AK Defense 49th3	Alaska State Defense Force, 49th Brigade
+11418	Juv Probation	Juvenile Probation
+11419	Juv Just Anch 1	Juvenile Justice - Anchorage/MatSu 1
+11422	Juv Just Anch 2	Juvenile Justice - Anchorage/MatSu 2
+11424	Juv Just MatSu	Juvenile Justice - MatSu
+11504	DNR S Aviation	South Zone Aviation
+11506	DNR MSS Disp	Mat-Su Area Dispatch
+11507	DNR KKS Disp	Kenai Kodiak Area Dispatch
+11508	DNR CRS Disp	Copper River Area Dispatch
+11511	Mat-Su ParkR	Matanuska-Susitna Parks Rangers
+11512	Mat-Su ParkS	Matanuska-Susitna Parks Staff Ops
+11513	State Parks	State Parks Ops
+11514	Chug Park S	Chugach Parks Staff Ops
+11515	Chug Park R	Chugach Parks Rangers
+11516	Kenai Park R	Kenai Parks Rangers
+11517	Kenai Park S	Kenai Parks Staff Ops
+11551	DNR South 1	South Command 1
+11552	DNR South 2	South Command 2
+11553	DNR South 3	South Command 3
+11554	DNR South 4	South Command 4
+11555	DNR South 5	South Command 5
+11556	DNR South 6	South Command 6
+11557	DNR South 7	South Command 7
+11558	DNR South 8	South Command 8
+11559	DNR South 9	South Command 9
+11621	DEC North	North Zone
+11811	AST Disp E	E Dispatch
+11812	AST NCIC E	E NCIC
+11813	AST Detect E	E Detectives
+11814	AST SERT all	SERT Statewide
+11815	AST E SERT	E SERT
+11816	AST Tac E	E Tactical
+11817	AST Detectiv	Detectives Statewide
+11818	AST Traff B	B Traffic
+11819	AST Dispatch A	A Dispatch
+11821	AST AltDisp3	Alternate Dispatch 3
+11823	AST A-Disp B	B Alternate Dispatch
+11831	AST VillageA	A Village Public Safety
+11832	AST VillageB	B Village Public Safety
+11833	AST VillageE	E Village Public Safety
+11861	AST Disp B	B Main Dispatch
+11862	AST NCIC B	B NCIC
+11863	AST SERT B	B SERT
+11864	AST Traff E	E Traffic
+11865	AST Tac B	B Tactical
+11866	AST Detect B	B Detectives
+11867	AST Glennall	B Glennallen
+11868	AST Disp D	D Dispatch
+11950	FtWain 507	507 SIG - ANC-to-Fort Wainwright
+11951	LMR Tech Anchor	LMR Technicians - Anchorage
+11952	LMR Tech Fbks	LMR Technicians - Fairbanks
+11953	LMR Tech 3	LMR Technicians 3
+11954	LMR Tech 4	LMR Technicians 4
+11955	LMR Tech Net	LMR Technician Net
+11956	LMR Tech 6	LMR Technicians 6
+11957	LMR Tech 7	LMR Technicians 7
+11958	LMR Tech 8	LMR Technicians 8
+11959	LMR Tech 9	LMR Technicians 9
+12000	AMRG SAR	Alaska Mountain Rescue Group
+12110	DOC TSP SW	Transport Statewide
+12111	DOC TSP 1	Transport Ch. 1
+12112	DOC TSP 2	Transport Ch. 2
+12113	Probation 1	Probation 1
+12114	DOC TSP 5	Transport Ch. 5
+12115	DOC TSP 6	Transport Ch. 6
+12116	Probation 2	Probation 2
+12141	GooseCrk 1	Goose Creek Correctional Center Main
+12142	GooseCrk 2	Goose Creek Correctional Center 2
+12143	GooseCrk 3	Goose Creek Correctional Center 3
+12146	GooseCrk 4	Goose Creek Correctional Center 4
+12147	GooseCrk 5	Goose Creek Correctional Center 5
+12150	GooseCrk AC1	Goose Creek Correctional Center All-Call 1
+12152	GooseCrk 9	Goose Creek Correctional Center 9
+12153	GooseCrk 6	Goose Creek Correctional Center 6
+12157	GooseCrk 7	Goose Creek Correctional Center 7
+12159	GooseCrk 8	Goose Creek Correctional Center 8
+12160	GooseCrk AC2	Goose Creek Correctional Center All-Call 2
+12531	Rail S Sec 1	South Zone Security 1
+12532	Rail S Sec 2	South Zone Security 2
+12533	Rail S PD	South Zone Police Ops
+12536	Rail S Ops 1	South Zone Ops 1
+12537	Rail S Ops 2	South Zone Ops 2
+12538	Rail S Ops 3	South Zone Ops 3
+12539	Rail S Ops 4	South Zone Ops 4
+12951	Sys Manage 1	System Management 1
+12952	Sys Manage 2	System Management 2
+12953	Sys Manage 3	System Management 3 (Phase II testing)
+12954	Sys Manage 4	System Management 4
+12990	Sys Manage Test1	System Management Testing 1
+12991	Sys Manage Test2	System Management Testing 2
+12992	Sys Manage Test3	System Management Testing 3
+12993	Sys Manage Test4	System Management Testing 4
+13001	Kenai PD	Kenai Police
+13101	Guardian Flight	Guardian Flight Dispatch
+13201	Valdez PD	Valdez Police - Dispatch
+13204	Valdez FD	Valdez Fire - Dispatch
+13301	Whittier PD Disp	Whittier Police Dispatch
+13303	Whittier PD Tac	Whittier Police Tac
+13305	Whittier FD Disp	Whittier Fire Dispatch
+13307	Whittier FD Tac	Whittier Fire Tac
+13308	Whittier EMS	Whittier EMS
+13401	ADOT Whittier D	Tunnel Dispatch
+13403	ADOT Whittier O	Tunnel Operations
+13405	ADOT Whittier M	Tunnel Maintenance
+13600	Mat-Su A/C	Animal Control
+13601	Mat-Su FD 1	Mat-Su Valley Fire/EMS Dispatch (simulcast of 154.295)
+13604	Mat-Su DF Tac 11	Mat-Su Valley Fire/EMS Tactical 11
+13605	Mat-Su FD Hs	Mat-Su Valley Fire/EMS Hospital
+13606	Mat-Su DF Tac 12	Mat-Su Valley Fire/EMS Tactical 12
+13624	Mat-Su Sch	Borough School District
+13631	Mat-Su Sch F	Borough School District Facilities
+13636	Mat-Su Sch O	Borough School District Ops
+13851	Wasilla PD	Wasilla Police
+13853	WasillaPD T1	Wasilla Police Tactical 1
+13855	WasillaPD T2	Wasilla Police Tactical 2
+13857	Wasilla FD	Wasilla Fire/EMS
+13911	Palmer PD 1	Palmer Police 1
+13912	Palmer PD 2	Palmer Police 2
+13913	Palmer PD T1	Palmer Police Tactical 1
+13914	Palmer PD T2	Palmer Police Tactical 2
+13915	Palmer PD Op	Palmer Police Ops
+13916	Palmer FD	Palmer Fire Ops
+13921	Palmer City	Palmer City Government
+14323	Copper Val EMS	Copper River EMS
+14324	Copper Valley FD	Copper Valley Fire
+14401	Cordova PD	Cordova Police
+14501	Events 1	Special Events 1
+14502	Events 2	Special Events 2
+14503	Events 3	Special Events 3
+15011	CPES Disp	Central Peninsula Emergency Services Dispatch
+15015	CPES Tac	Central Peninsula Emergency Services Tactical
+15019	Kenai School	Kenai Borough School District
+15021	Kenai EmergA	Borough Emergency Tac A
+15022	Kenai EmergB	Borough Emergency Tac B
+15023	Kenai EmergC	Borough Emergency Tac C
+15024	Kenai EmergD	Borough Emergency Tac D
+15025	BearCreek FD	Bear Creek Volunteer Fire
+15026	Seward EMS	Seward Volunteer Ambulance Corps
+15027	MoosePass FD	Moose Pass Volunteer Fire/EMS
+15028	Cooper FD	Cooper Landing Volunteer Fire/EMS
+15031	Hope-Sun FD	Hope-Sunrise Volunteer Fire/EMS
+15032	Prov-Seward	Providence Seward Medical Center
+15034	Kenai PD Trn	Kenai Police Training
+15035	Kenai City 1	Kenai City Government 1
+15038	Kenai City 1	Kenai City Government 2
+15046	Kenai FD Dis	Kenai Fire Dispatch
+15047	Kenai FD Tac	Kenai Fire Tactical
+15051	E Kenai Emerg	Eastern Kenai Peninsula Emergency Service Agencies
+15052	KPB East ES	East Kenai Emergency Services Dispatch
+15101	West Kenai ES	Western Emergency Services Dispatch
+15121	Kachemak Emg	Kachemak Emergency Services
+15136	Ninilchik Emg	Ninilchik Emergency Services
+15140	Barb Hghts FD	Barbara Heights Fire Department - Seldovia
+15301	Seward PD 1	Seward Police 1
+15302	Seward PD 2	Seward Police 2
+15303	Seward PW	Seward Public Works
+15501	Homer PD	Homer Police
+15511	Homer FD	Homer Fire Department
+16660	C Multigroup	Multigroup
+16661	C Hail	Hail
+16662	C Cmd 2	Command 2
+16663	C Cmd 3	Command 3
+16664	C Cmd 4	Command 4
+16665	C Cmd 5	Command 5
+16666	C Cmd 6	Command 6
+16681	IC Admin 8	Admin 8
+16682	IC Admin 7	Admin 7
+16683	IC Admin 6	Admin 6
+16684	IC Admin 5	Admin 5
+16685	IC Admin 4	Admin 4
+16686	IC Admin 3	Admin 3
+16687	IC Admin 2	Admin 2
+16688	IC Admin 1	Admin 1
+16701	LE B Tac 1	LE Region B Tac 1
+16702	LE B Tac 2	LE Region B Tac 2
+16703	LE E Tac 1	LE Region E Tac 1
+16704	LE E Tac 2	LE Region E Tac 2
+16705	LE State Tac 1	LE Statewide Tac 1
+16706	LE Jt Tac 3	LE Joint Ops Tac 3
+16707	LE Jt Tac 4	LE Joint Ops Tac 4
+17001	Drugs Main	Main Operations
+17002	Drug Ops 1	Operations
+17003	Drug Ops 2	Operations
+17004	Drug Ops 3	Operations
+17031	FBI Ops 1	Operations
+17032	FBI Ops 2	Operations
+17033	FBI Ops 3	Operations
+17034	FBI Ops 4	Operations
+17035	FBI Ops 5	Operations
+17036	FBI Surv	Surveillance
+17037	FBI Ops 6	Operations
+17038	FBI Ops 7	Operations
+17041	FBI Ops/Surv	Operations/Surveillance
+17043	FBI Ops/Surv	Operations/Surveillance
+17044	FBI Ops/Surv	Operations/Surveillance
+17045	FBI Ops/Surv	Operations/Surveillance
+17047	FBI Ops/Surv	Operations/Surveillance
+17051	IRS Invest 1	IRS Investigations 1
+17052	IRS Invest 2	IRS Investigations 2
+17070	TSA Calling	Calling Channel
+17071	TSA Ops 1	Ops 1
+17072	TSA Ops 2	Ops 2
+17073	TSA Ops 3	Ops 3
+17074	TSA Ops 4	Ops 4
+17075	TSA Ops 5	Ops 5
+17076	TSA Ops 6	Ops 6
+17077	TSA Ops 7	Ops 7
+17078	TSA Ops 8	Ops 8
+17079	TSA Ops 9	Ops 9
+17091	Chugach N.F.	Chugach National Forest
+17092	Tongass N.F.	Tongass National Forest
+17093	USFS Command	Command
+17094	USFS Aviation	Aviation
+17100	ANG Air 01	Operations
+17103	ANG Air 02	Operations
+17104	ANG Air 03	Operations
+17105	ANG Air 04	Operations
+17109	ANG Air 05	Operations
+17113	ANG Air 06	Operations
+17114	ANG Air 07	Operations
+17115	ANG Air 08	Operations
+17140	ANG Air 09	Operations
+17141	ANG Air 10	Operations
+17142	ANG Air 11	Operations
+17143	ANG Air 12	Operations
+17153	ANG Air 13	Operations
+17201	AK ATF 1	Operations
+17202	AK ATF 2	Operations
+17211	USMS Ops	Operations
+17212	USMS Warrants 1	Warrants 1
+17213	USMS Warrants 2	Warrants 2
+17214	USMS Ops	Operations
+17215	USMS North Ops	North Operations
+17216	US F	Operations
+17221	Nat Parks 1 Disp	Dispatch
+17222	Nat Parks 2	Operations 2
+17223	Nat Parks 3	Operations 3
+17224	Nat Parks 4	Operations 4
+17225	Nat Parks 5	Operations 5
+17226	Nat Parks 6	Operations 6
+17227	Nat Parks 7	Operations 7
+17241	USPS Inspect 1	Postal Inspectors 1
+17242	USPS Inspect 2	Postal Inspectors 2
+17255	USPS OIG 1	Office of Inspector General 1
+17256	USPS OIG 2	Office of Inspector General 2
+17311	NOAA Law SC	NOAA Southcentral Region
+17401	FPS Disp	Dispatch
+17402	FPS Ops	Operations
+17411	Homeland Secur 1	Homeland Security Investigations 1
+17412	Homeland Secur 2	Homeland Security Investigations 2
+17500	CAP Main	Main
+17501	CAP Interior	Interior (IN) channel
+17502	CAP So-Cent	South Central (SC) channel
+17503	CAP Southeast	Southeast Channel
+17926	Nat Guard 17926	Alaska National Guard
+17929	Nat Guard 17929	Alaska National Guard
+17931	Nat Guard	Alaska National Guard
+17932	Nat Guard	Alaska National Guard
+17944	Nat Guard 17944	Alaska National Guard
+17945	Nat Guard	Alaska National Guard
+17946	Nat Guard	Alaska National Guard
+18301	AST Judge Anchor	Anchorage Judicial Services
+18302	AST Judge C	C Judicial Services
+18303	AST Judge E	E Judicial Services
+18304	AST Kodiak	C Kodiak Dispatch
+18305	AST NCIC C	C NCIC
+18306	AST TrafficC	C Traffic
+18307	AST Tac C	C Tac
+18309	AST VillageC	C Village Public Safety
+18311	Village PS	Village Public Safety Statewide
+18312	AST VillageD	D Village Public Safety
+18502	JBER Events	Base Events
+18503	JBER Events	Base Events
+18505	JBER Events	Base Events
+18506	JBER Events	Base Events
+18507	JBER Events	Base Events
+18508	JBER Events	Base Events
+18521	JBER BaseOps	Base Operations
+18522	JBER BaseOps	Base Operations
+18523	JBER BaseOps	Base Operations
+18524	EDF Airfield	Elmendorf Road/Airfield Maintenance
+18525	EDF Airfield	Elmendorf Road/Airfield Maintenance
+18526	EDF Airfield	Elmendorf Road/Airfield Maintenance
+18527	EDF Airfield	Elmendorf Road/Airfield Maintenance
+18528	JBER BaseOps	Base Operations
+18529	JBER BaseOps	Base Operations
+18532	JBER BaseOps	Base Operations
+18535	JBER BaseOps	Base Operations
+18538	JBER BaseOps	Base Operations
+18539	Hillberg Ski	Hillberg Ski Area
+18541	JBER Base Op	Base Operations
+18544	JBER BaseOps	Base Operations
+18548	JBER BaseOps	Base Operations
+18551	Red Flag 1	Red Flag Exercises
+18552	Red Flag 2	Red Flag Exercises
+18553	Red Flag 3	Red Flag Exercises
+18554	Red Flag 4	Red Flag Exercises
+18555	JBER BaseOps	Base Operations
+18556	JBER BaseOps	Base Operations
+18562	JBER BaseOps	Base Operations
+18571	JBER BaseOps	Base Operations
+18580	JBER BaseOps	Base Operations
+18583	JBER BaseOps	Base Operations
+18590	JBER BaseOps	Base Operations
+18591	Elmend Med 1	Medics
+18592	JBER FD Tac 1	Fire/EMS Tac 1
+18593	JBER FD Tac 2	Fire/EMS Tac 2
+18594	JBER FD Tac 3	Fire/EMS Tac 3
+18595	JBER FD Tac 4	Fire/EMS Tac 4
+18596	JBER BaseOps	Base Operations
+18597	JBER BaseOps	Base Operations
+18599	JBER BaseOps	Base Operations
+18605	JBER EDF Air	EDF Airfield Ops
+18606	EDF Ground	EDF Ground Operations
+18608	EDF Airfield	EDF Airfield Operations
+18610	JBER BaseOps	Base Operations
+18611	JBER BaseOps	Base Operations
+18612	JBER Weapons	Weapons
+18613	JBER BaseOps	Base Operations
+18620	JBER BaseOps	Base Operations
+18621	Hospital Sec	Hospital Security
+18622	Elmend ER 1	E.R. Recovery
+18623	JBER BaseOps	Base Operations
+18624	JBER BaseOps	Base Operations
+18625	EDF Airfield	EDF Airfield Operations
+18626	JBER BaseOps	Base Operations
+18632	EDF Mach 1	EDF Mach
+18633	EDF Mach 2	EDF Mach
+18634	EDF Mach 3	EDF Mach
+18636	EDF Airfield	EDF Airfield Operations
+18638	JBER EDFmach	EDF Mach
+18639	JBER Base Op	Base Operations
+18641	JBER EDFmach	EDF Mach
+18642	JBER Fueling	Aircraft Fueling and Maintenance
+18645	JBER BaseOps	Base Operations
+18646	JBER Base Op	Base Operations
+18648	JBER BaseOps	Base Operations
+18651	JBER BaseOps	Base Operations
+18652	JBER Fleet	Fleet
+18653	JBER BaseOps	Base Operations
+18655	EDF Aircraft	EDF Aircraft Operations
+18656	JBER BaseOps	Base Operations
+18662	JBER BaseOps	Base Operations
+18670	JBER BaseOps	Base Operations
+18671	JBER PD 1	Police Operations
+18672	JBER PD 2	Police Operations
+18673	JBER PD 3	Police Operations
+18675	JBER PD Disp	Police Dispatch
+18676	JBER BaseOps	Base Operations
+18677	JBER BaseOps	Base Operations
+18682	JBER BaseOps	Base Operations
+18683	JBER BaseOps	Base Operations
+18684	JBER Base Op	Base Operations
+18685	JBER BaseOps	Base Operations
+18686	JBER BaseOps	Base Operations
+18692	JBER Transpt	Personnel Transportation Operations
+18693	JBER Trans	Base Transportation Ops
+18694	JBER BaseOps	Base Operations
+18695	JBER BaseOps	Base Operations
+18698	JBER BaseOps	Base Operations
+18699	JBER BaseOps	Base Operations
+18711	JBER BaseOps	Base Operations
+18734	JBER BaseOps	Base Operations
+18751	JBER BaseOps	Base Operations
+18752	JBER BaseOps	Base Operations
+18761	JBER Wildlif	Wildlife Enforcement
+18771	JBER Train	Training Ops
+18776	JBER Train	Training Ops
+18778	JBER Train	Training Ops
+18779	JBER Train	Training Ops
+18780	JBER Train	Training Ops
+18781	JBER Train	Training Ops
+18783	JBER Train	Training Ops
+18801	JBER Law Invest	Law Enforcement Investigations/Surveillance
+18803	JBER BaseOps	Base Operations
+18819	JBER BaseOps	Base Operations
+18828	JBER FD Disp	Fire/EMS Dispatch
+18829	JBER Crash Net	Fire/EMS Crash Net
+18830	JBER FD Tac 5	Fire/EMS Tac 5
+18831	JBER FD Tac 6	Fire/EMS Tac 6
+18832	JBER FD Tac 7	Fire/EMS Tac 7
+18833	JBER FD Tac 8	Fire/EMS Tac 8
+18834	JBER FD Tac 9	Fire/EMS Tac 9
+18900	Rich CP2	Courtesy Patrol (Call-sign CP2)
+18903	Rich CP Drag	Courtesy Patrol Office/Staff Duty (Call-sign Dragon)
+18905	Elmend Joint	Joint Taskforce Alaska Tac
+18907	JBER BaseOps	Base Operations
+18916	JBER BaseOps	Base Operations
+18985	JBER BaseOps	Base Operations
+18991	Elmend Event	Event
+19002	JBER BaseOps	Base Operations
+19004	JBER BaseOps	Base Operations
+19605	JBER BaseOps	Base Operations
+19608	JBER Army Tr	Army Training Ops
+19610	JBER BaseOps	Base Operations
+19611	JBER BaseOps	Base Operations
+19612	JBER BaseOps	Base Operations
+19613	JBER BaseOps	Base Operations
+19625	JBER BaseOps	Base Operations
+19628	JBER BaseOps	Base Operations
+19630	JBER BaseOps	Base Operations
+19631	JBER Base Op	Base Operations
+19632	JBER BaseOps	Base Operations
+19639	JBER BaseOps	Base Operations
+19643	JBER BaseOps	Base Operations
+19645	JBER BaseOps	Base Operations
+19646	JBER BaseOps	Base Operations
+19656	JBER BaseOps	Base Operations
+19657	JBER BaseOps	Base Operations
+19658	JBER BaseOps	Base Operations
+19662	JBER Roads	Roads
+19663	JBER Roads	Roads
+19664	JBER Roads	Roads
+19666	Rich Roads 1	Roads 1
+19669	JBER Roads	Roads
+19670	Rich Roads 3	Roads 3
+19675	JBER BaseOps	Base Operations
+19677	JBER BaseOps	Base Operations
+19678	JBER BaseOps	Base Operations
+19682	JBER BaseOps	Base Operations
+19685	JBER BaseOps	Base Operations
+19687	JBER BaseOps	Base Operations
+19688	JBER BaseOps	Base Operations
+19689	JBER BaseOps	Base Operations
+19701	JBER BaseOps	Base Operations
+19703	JBER BaseOps	Base Operations
+19730	JBER BaseOps	Base Operations
+19732	JBER BaseOps	Base Operations
+19734	JBER BaseOps	Base Operations
+19735	JBER BaseOps	Base Operations
+19738	JBER BaseOps	Base Operations
+19741	Rich Range 1	Range 1
+19742	Rich Range 2	Range 2
+19743	Rich Range 3	Range 3
+19744	Rich Range 4	Range 4
+19745	Rich Range 5	Range 5
+19746	Rich Range 6	Range 6
+19747	Rich Range 7	Range 7
+19748	Rich Range 8	Range 8
+19749	Rich Range 9	Range Control
+19762	JBER BaseOps	Base Operations
+19768	FtWain Op 01	Ops
+19769	FtWain Op 02	Ops
+19770	FtWain Op 03	Ops
+19771	FtWain Op 04	Ops
+19772	FtWain Op 05	Ops
+19773	FtWain Op 06	Ops
+19774	FtWain Op 07	Ops
+19775	FtWain Op 08	Ops
+19776	FtWain Op 09	Ops
+19777	FtWain Cmd	Command
+19778	FtWain ANL	ANL
+19779	FtWain Op 10	Ops
+19780	FtWain Op 11	Ops
+19781	FtWain Op 12	Ops
+19782	FtWain Op 13	Ops
+19783	FtWain Op 14	Ops
+19784	FtWain Op 15	Ops
+21201	ADOT BlackRp	Black Rapids
+21202	ADOT Central	Central
+21203	ADOT Fairbnk	Fairbanks
+21204	ADOT Montana	Montana creek
+21205	ADOT Galena	Galena
+21206	ADOT Ruby	Ruby
+21207	ADOT Track 1	Track 1
+21208	ADOT Track 2	Track 2
+21209	ADOT Flag 1	Flag 1
+21210	ADOT Flag 2	Flag 2
+21211	ADOT Avalan1	Avalanche 1
+21212	ADOT Ops 1	Ops 1
+21214	ADOT Delta	Delta
+21215	ADOT Eagle	Eagle
+21216	ADOT Northwa	Northway
+21217	ADOT N Ops 7	Ops 7
+21219	ADOT Tok	Tok
+21220	ADOT Trims	Trims
+21221	ADOT Track 3	Track 3
+21222	ADOT Ops 2	Ops 2
+21223	ADOT Flag 3	Flag 3
+21224	ADOT Flag 4	Flag 4
+21225	ADOT Avalan2	Avalanche 2
+21226	ADOT Ops 3	Ops 3
+21227	ADOT Ops 4	Ops 4
+21228	ADOT Cantwel	Cantwell
+21229	ADOT East fo	East fork
+21230	ADOT Healy	Healy
+21231	ADOT Livengd	Livengood
+21232	ADOT Mckinly	Mckinley
+21233	ADOT Nenana	Nenana
+21234	ADOT Track 5	Track 5
+21235	ADOT Track 6	Track 6
+21236	ADOT Flag 5	Flag 5
+21237	ADOT Flag 6	Flag 6
+21238	ADOT Avalan3	Avalanche 3
+21239	ADOT Wg 5	Wg 5
+21240	ADOT Wg 6	Wg 6
+21261	ADOT N FAI 3	Fairbanks
+21269	ADOT N WG Ops	DOT N WG Ops
+21271	FIA PD Disp	Police/Fire Dispatch (Simulcast of 151.445)
+21274	FIA Ops	Operations
+21281	CVE Region D	Region D - North
+21507	DNR FAS Disp	Fairbanks Area Dispatch
+21508	DNR DAS Disp	Delta Area Dispatch
+21509	DNR TAS Disp	Tok Area Dispatch
+21518	Fairb Park R	Fairbanks Parks Rangers
+21519	Fairb Park S	Fairbanks Parks Staff Ops
+21551	DNR North 1	North Command 1
+21552	DNR North 2	North Command 2
+21553	DNR North 3	North Command 3
+21554	DNR North 4	North Command 4
+21555	DNR North 5	North Command 5
+21556	DNR North 6	North Command 6
+21557	DNR North 7	North Command 7
+21558	DNR North 8	North Command 8
+21559	DNR North 9	North Command 9
+21621	DEC Ops	Ops
+21811	AST Traff D	D Traffic
+21862	AST NCIC D	D NCIC
+21863	AST SERT D	D SERT
+21864	AST Tok D	D Tok
+21865	AST Tac D	D Tactical
+21866	AST Detect D	D Detectives
+21867	AST DeltaJct	D Delta Junction
+21959	LMR Tech North	LMR Technicians North Zone
+22111	Juv Just Fairbks	Juvenile Justice - Fairbanks
+22112	Probation 3	Probation 3
+22113	DOC TSP 3	Transport Ch. 3
+22114	DOC TSP 4	Transport Ch. 4
+22311	UAF PD/FD	Police/Fire Operations
+22313	UAF Drone	UAF Drone/UAV Ops
+22531	Rail N Sec 1	North Zone Security 1
+22532	Rail N Sec 2	North Zone Security 2
+22533	Rail N Sec 3	North Zone Security 3
+23102	Fairbks PD M	Fairbanks Police Main
+23103	Fairbks PD N	Fairbanks Police NCIC
+23104	Fairbks PD1T	Police - Tactical 1
+23105	Fairbks PD2T	Police - Tactical 2
+23106	Fairbks Det	Police - Detectives
+23201	Fairbks Hosp	Fairbanks Memorial Hospital
+23401	FNS FD-Emerg	FNS FD Emergency
+23402	NorthPole PD	North Pole Police Dispatch
+23405	Deltana FD T	Rural Deltana Fire Tac
+23406	Deltana FD D	Rural Deltana Fire Dispatch
+23407	Fairbks VIP	Volunteers In Policing
+23408	NorStar EMS	North Star Borough EMS
+23409	Fairbks AC	Animal Control - Dispatch
+23411	Delta Med	Delta Medical Transport
+23413	Fairbks FD D	Borough-wide Fire Dispatch
+23416	Fairbks FD	Fire - Dispatch
+23417	FNS FD Tac 2	Fire Tac 2 (Fire Paging)
+23418	FNS FD Tac 3	Fire Tac 3
+23421	FNS FD Tac 4	Fire Tac 4
+23422	FNS FD Tac 5	Fire Tac 5
+23423	FNS FD Tac 6	Fire Tac 6
+23425	FNS FD Tac 10	Fire Tac 10
+23426	FNS FD MA-2	Fire Mutual Aid 2
+23427	FNS FD MA-3	Fire Mutual Aid 3
+23428	FNS FD MA-4	Fire Mutual Aid 4
+23429	FNS FD MA-5	Fire Mutual Aid 5
+23430	NP FD 1	North Pole Fire Dispatch
+23431	SFD Disp	Steese Fire Dispatch
+23432	UAF FD Disp	Fire Dispatch
+23433	Chena FD	Chena-Goldstream Fire Dispatch
+23434	Ester FD	Ester Fire Dispatch
+23435	FNS FD Tac 7	Fire Tac 7
+23436	FNS FD Tac 8	Fire Tac 8
+23437	FNS FD Tac 9	Fire Tac 9
+23440	EOC Disp	Emergency Ops Dispatch
+23441	EOC Tac 2	Emergency Ops Tac 2
+23442	EOC Tac 3	Emergency Ops Tac 3
+23443	EOC Tac 4	Emergency Ops Tac 4
+23444	EOC Tac 5	Emergency Ops Tac 5
+23445	EOC Tac 6	Emergency Ops Tac 6
+23446	EOC Tac 7	Emergency Ops Tac 7
+23447	EOC Tac 8	Emergency Ops Tac 8
+23448	EOC Tac 9	Emergency Ops Tac 9
+23449	EOC Tac 10	Emergency Ops Tac 10
+23450	Fairbanks Parks	Fairbanks Parks
+23467	Fairbks MACS	Fairbanks MACS Transit Dispatch
+23468	Fairbks VanT	Fairbanks VanTran Dispatch
+23475	FNS Disp	North Star Fire Dispatch
+23476	Salcha EMS	Salcha Rescue/EMS Dispatch
+23480	EOC Hail	Hail
+23601	Denali FD	Borough Fire/EMS Dispatch
+23614	Nenana FD/EMS	Nenana Fire/EMS
+23801	Tok Area FD/EMS	Tok Area Fire/EMS
+26620	N Multigroup	Multigroup
+26621	N Hail	Hail
+26622	N Cmd 2	Command 2
+26623	N Cmd 3	Command 3
+26624	N Cmd 4	Command 4
+26625	N Cmd 5	Command 5
+26626	N Cmd 6	Command 6
+26681	IC Admin 16	Admin 16
+26682	IC Admin 15	Admin 15
+26683	IC Admin 14	Admin 14
+26684	IC Admin 13	Admin 13
+26685	IC Admin 12	Admin 12
+26686	IC Admin 11	Admin 11
+26687	IC Admin 10	Admin 10
+26688	IC Admin 9	Admin 9
+26701	LE D Tac 1	LE Region D Tac 1
+26702	LE D Tac 2	LE Region D Tac 2
+26703	LE State Tac 2	LE Statewide Tac 2
+26704	LE Jt Tac 1	LE Joint Ops Tac 1
+26705	LE Jt Tac 2	LE Joint Ops Tac 2
+27001	Drug North	North Zone Operations
+27202	BLM Fire 1/Tac 1	Fire 1/Tac 1
+27206	BLM Transport	Transportation
+27208	BLM Medical	Medical
+27925	Nat Guard	Alaska National Guard
+27928	Nat Guard 1	Alaska National Guard 1
+28101	ClearAFS 28101	Operations
+28103	ClearAFS 28103	Operations
+28108	ClearAFS Main	Main
+28109	ClearAFS 28109	Operations
+28110	ClearAFS Fire	Fire Dispatch
+28111	ClearAFS 28111	Operations
+28113	ClearAFS 28113	Operations
+28303	AST Judge D	D Judicial Services
+29000	Eielsn Igloo	"Igloo"" Callsign"""
+29010	Eielsn PW 1	Public Works
+29011	Eielsn PW 2	Public Works - Utility
+29012	Eielsn EOD	Explosive Ordnance Disposal (EOD)
+29013	Eielsn PW 3	Public Works
+29014	Eielsn PW 4	Public Works (Runway Ops?)
+29015	Eielsn PW 5	Public Works - Electrical
+29016	Eielsn PW 6	Public Works (Trains?)
+29017	Eielsn PW 9	Public Works (Ch 9?)
+29022	Eielsn  FD E	Fire EMS Alerts
+29023	Eielsn FD Ds	Fire Main (Ch. 1)
+29024	Eielsn FD T1	Fire Tactical 1 (Ch. 2)
+29025	Eielsn FD T2	Fire Tactical 2
+29026	Eielsn FD	Fire
+29031	Eielsn SF 1	Security Forces
+29032	Eielsn SF Ds	Security Forces (SP) Main
+29033	Eielsn SF 2	Security Forces (SP)
+29034	Eielsn SF 3	Security Forces
+29035	Eielsn SF 4	Security Forces
+29036	Eielsn SF 5	Security Forces
+29037	Eielsn SF 6	Security Forces
+29043	Eielsn ATC B	ATC Base Ops
+29044	Eielsn ATC R	ATC Ramp Net
+29058	Eielsn MWR	Morale Welfare Recreation
+29059	Eielsn Event	Special Events
+29065	Eielsn 18th	18th AMU (F-16's)
+29066	Eielsn 355th	355th AMU (A-10's)
+29072	Eielsn Flt 1	Flight Line
+29073	Eielsn 354 1	354th Maintenance Squadron (MXS) ammo Flight
+29074	Eielsn Flt 2	Flight Line
+29075	Eielsn 354 2	354th Maintenance Squadron (MXS)
+29082	Eielsn POL	POL
+29083	Eielsn Buses	Transportation Buses
+29090	Eielsn Envir	Bio-Environmental, Hospital
+29096	Eielsn Techs	Radio Techs
+29097	Eielsn Cable	Eielson Cables Techs
+29098	Eielsn ILS	Eielson ILS Techs
+29115	Eielsn EW O	EW Ops
+29116	Eielsn EO M	EW Maintenance
+29117	Eielsn Cope	Cope Thunder - Safety
+29118	Eielsn RF 0	Red-Flag - Ops
+29119	Eielsn RF 1	Red-Flag - Ch 1
+29120	Eielsn RF 2	Red-Flag - Ch 2
+29121	Eielsn RF 3	Red-Flag - Ch 3
+29122	Eielsn RF 4	Red-Flag - Ch 4
+29123	Eielsn RF 5	Red-Flag - Ch 5
+29124	Eielsn RF 6	Red-Flag - Ops
+29125	Eielsn RF 7	Red-Flag - Ops
+29126	Eielsn RF 8	Red-Flag - Ops
+29127	Eielsn RF 9	Red-Flag - Ops
+29128	Eielsn RF Th	"Red-Flag - Thunder"""""
+29129	Eielsn RF M1	Red-Flag - Mach 1 (ES1)
+29130	Eielsn RF M2	Red-Flag - Mach 2
+29131	Eielsn RF M3	Red-Flag - Mach 3
+29132	Eielsn RF M4	Red-Flag - Mach 4
+29133	Eielsn RF M5	Red-Flag - Mach 5
+29134	Eielsn RF 10	Red-Flag - Ops
+29145	Eielsn FL A	Flight Line Ops - Avionics
+29146	Eielsn FL S	Flight Line (Sweep?)
+29147	Eielsn FL R	Flight Line (Raven?)
+29148	Eielsn Chena	Chena Ops
+29159	Eielsn Inspt	Inspector General
+29163	Eielsn Crash	Crash Net
+29178	Eielsn FL B	Flight Line (Bearcat?)
+29192	Eielsn FL C	Flight Line (Cougar?)
+29194	Eielsn FL H	Flight Line (Husky?)
+29198	Eielsn FL G	Flight Line (Griffin?)
+29200	Eielsn FL ?	Flight Line
+29212	Eielsn PW Sn	Public Works - Snow Plows
+29214	Eielsn ATOC	Air Terminal Operation Center (ATOC)
+29515	FtGreely ATC	ATC Tower
+29519	FtGreely	FtGreely
+29531	FtGreely MP	Military Police
+29565	FtGreely Rng	Range Control
+29568	FtGreely FD1	Fire Dispatch
+29574	FtGreely FD2	Fire
+29784	Birch Hill 1	Birch Hill Rec Area 1 Ski Lodge
+29785	Birch Hill 2	Birch Hill Rec Area 2
+29786	Birch Hill 3	Birch Hill Rec Area 3
+29787	Birch Hill 4	Birch Hill Rec Area 4
+29788	Birch Hill 5	Birch Hill Rec Area 5
+29808	BAS HOSP	Bassett Army Hospital
+29854	FtWain Wldlf	Wildlife Enforcement
+29855	FtWain Rng 1	Range Control
+29857	FtWain Rng 2	Range Control
+29874	FtWain FWA 1	FWA DOL
+29875	FtWain FWA 2	FWA DOL/TMP
+29876	FtWain FWA 3	FWA DOL/TMP
+29877	FtWain FWA 4	FWA DOL/TMP
+29878	FtWain FWA 5	FWA DOL/TMP
+29888	FtWain RadTech 1	Radio Technicians 1
+29889	FtWain RadTech 2	Radio Technicians 2
+29890	FtWain RadTech 3	Radio Technicians 3
+29896	FtWain Stryk	Stryker Ops
+29911	FtWain FWA 6	FWA/Greely NWTC (Northern Warfare Training Center)
+29918	FtWain MP 1	Military Police
+29919	FtWain DPM1	FWA MP DPM1
+29920	FtWain Tac1	FWA MP Tac 1 & Dispatch
+29921	FtWain MP 2	Military Police
+29922	FtWain MP 3	Military Police SRT
+29923	FtWain MP 4	Military Police
+29924	FtWain MP 5	Military Police
+29925	FtWain MP 6	Military Police
+29927	FWA MP Gate	FWA MP Gate Security
+29929	FtWain Comp	Computer/Network Techs
+29933	FtWain Rngrs	Rangers Ops?
+29938	FtWain Staff	Staff Duty?
+29941	FtWain Aviat	Aviation
+29945	FtWain Safe	Safety
+29947	FtWain DPSM	DPTSM
+29951	FtWain Medvc	Medevac
+29956	FtWain Baset	Bassette Base
+29959	FtWain PW 1	Public Works
+29960	FtWain PW 2	Public Works - Electrical
+29961	FtWain PW 3	Public Works
+29962	FtWain PW 4	Public Works - Roads & Grounds
+29963	FtWain PW 5	Public Works
+29964	FtWain PW 6	Public Works
+29965	FtWain PW 7	Public Works
+29966	FtWain PW 8	Public Works
+29968	FtWain Rng 3	Range Control - Machine Gun Range
+29969	FtWain Rng 4	Range Control
+29970	FtWain Rng 5	Range Control
+29971	FtWain FWA	FWA MOUT Site Control/Operations
+29972	FtWain Rng 6	Range Control
+29973	FtWain Rng 7	Range Control
+29974	FtWain Rng 8	Range Control
+29975	FtWain Rng 9	Range Control
+29976	FtWain Rng 10	Range Control
+29982	FtWain FD U	Fire - Utility
+29983	FtWain FD Ds	Fire - Main Dispatch
+29984	FtWain FD In	Fire - Inspectors
+29985	FtWain FD T1	Fire - Tactical 1
+29986	FtWain FD T2	Fire - Tactical 2
+29987	FtWain FD T3	Fire - Tactical 3
+29988	FtWain FD ?2	Fire
+29993	FtWain ATC B	ATC Base Ops
+29994	FtWain ATC G	ATC Ground Control
+29995	FtWain ATC F	ATC Follow Me
+29996	FtWain ATC T	ATC Tower
+31201	ADOT Gustavs	Gustavus
+31202	ADOT Haines	Haines
+31203	ADOT Hoonah	Hoonah
+31204	ADOT Juneau	Juneau
+31205	ADOT Ketchkn	Ketchikan
+31206	ADOT Klawock	Klawock
+31207	ADOT Petersburg	Petersburg
+31209	ADOT Skagway	Skagway
+31213	ADOT Kake	Kake
+31214	ADOT Wrangel	Wrangell
+31215	ADOT Jun 1	Ops 1
+31219	ADOT S Jun 2	Ops 2
+31281	CVE Region A	Region A - Southeast
+31412	Juv Just Juneau	Johnson Youth Center, Juneau
+31415	Juvenile Justice	Juvenile Justice - Juneau
+31501	Haines DNR	Haines-Skagway (HNS)
+31621	DEC Juneau	Juneau
+31812	AST NCIC A	A NCIC
+31813	AST Traff A	A Traffic
+31814	AST Ops A	A Operations
+31815	AST Tac A	A Tactical
+31816	AST Detect A	A Detectives
+31817	AST Ops A	A Operations
+31959	LMR Tech SE	LMR Technicians Southeast
+32111	DOC TSP 7	Transport Ch. 7
+32112	DOC TSP 8	Transport Ch. 8
+33313	Craig Police	Craig Police
+33317	Haines Police	Haines Police
+33318	Haines Borough	Haines Borough
+33330	Capital Transit	Capital Transit
+33332	AKCess Paratrans	AKCess Paratransit
+36610	S Multigroup	Multigroup
+36661	S Hail	Hail
+36662	S Cmd 2	Command 2
+36663	S Cmd 3	Command 3
+36664	S Cmd 4	Command 4
+36665	S Cmd 5	Command 5
+36666	S Cmd 6	Command 6
+36701	LE A Tac 1	LE Region A Tac 1
+36702	LE A Tac 2	LE Region A Tac 2
+37221	Nat Parks SE	Operations Southeast
+37311	NOAA Law  SE	NOAA Southeast Region
+37314	NOAA Law 2	NOAA Operations
+37318	NOAA Law 3	NOAA Operations
+37925	Nat Guard 2	Alaska National Guard 2
+37926	Nat Guard Jn	Alaska National Guard, Juneau
+37928	Nat Guard	Alaska National Guard
+38301	AST Judge A	A Judicial Services
+43200	Anch WstWtr Adm	Water and Wastewater Utility Admin
+43201	Anch WstWtr1	Water and Wastewater Utility 1
+43202	Anch WstWtr2	Water and Wastewater Utilily 2
+43204	Anch WstWtr3	Water and Wastewater Utilily 3
+43205	Anch WstWtr4	Water and Wastewater Utilily 4
+43300	Anch Waste 1	Solid Waste Services Dispatch
+43301	Anch Waste 2	Solid Waste Services Operations
+43302	Anch Waste 3	Solid Waste Services Operations
+43303	Anch Waste 4	Solid Waste Services Operations
+43401	Anch Port Sec	Port of Anchorage Security/Operations
+43402	Anch Port Maint	Port of Anchorage Maintenance
+43403	Anch Port 3	Port of Anchorage Operations
+44021	Anch FD/EMS	Alarm 1 - Fire/EMS Dispatch
+44022	Anch FD Com2	Fire Command 2
+44023	Anch FD Tac3	Fire Tactical 3
+44024	Anch FD Tac4	Fire Tactical 4
+44025	Anch FD Tac5	Fire Tactical 5
+44026	Anch FD Tac6	Fire Tactical 6
+44027	Anch FD Tac7	Fire Tactical 7
+44028	Anch FD Tac8	Fire Tactical 8
+44029	Anch FD Tac9	Fire Tactical 9
+44030	Medic Hospit	Medic to Hospital
+44031	Pvt Ambul Disp	Private Ambulance Services Dispatch
+44032	AFD Training 1	Fire Training 1
+44033	AFD Training 2	Fire Training 2
+44034	AFD Explorers 1	Fire Explorers 1
+44035	AFD Explorers 2	Fire Explorers 2
+44071	Chugiak FD/EMS	Chugiak Alarm 1 - Fire/EMS Dispatch
+44072	Chugiak FD 2	Chugiak Fire Command 2
+44073	Chugiak FD 3	Chugiak Fire Tac 3
+44074	Chugiak FD 4	Chugiak Fire Tac 4
+44075	Chugiak FD 5	Chugiak Fire Tac 5
+44076	Chugiak FD 6	Chugiak Fire Tac 6
+44081	Girdwood FD/EMS	Girdwood Alarm 1 - Fire/EMS Dispatch
+44082	Girdwood Com	Girdwood Command 2
+44083	Girdwood FD Tac3	Girdwood Fire Tac 3
+44084	Girdwood FD Tac4	Girdwood Fire Tac 4
+44101	Anch PD 1 N Disp	North Dispatch
+44102	Anch PD 2 Util	Utility
+44103	Anch PD 3 S Disp	South Dispatch
+44104	Anch PD 4	Police 4
+44105	Anch PD 5	Police 5
+44106	Anch PD 6	Police 6
+44107	Anch PD 7	Police 7
+44108	Anch PD 8	Police 8
+44109	APD Supv	APD Supervisors
+44110	APD Traffic	APD Traffic Units
+44111	Anch PD Comm	Police Community Action Policing Units
+44112	APD Det 1	APD Detectives 1
+44113	APD Det 2	APD Detectives 2
+44114	Anch PD Vice	Police Vice Units
+44211	Anch SAR 1	Police Auxiliary Search Team 1
+44212	Anch SAR 2	Police Auxiliary Search Team 2 Tactical
+44213	Anch Patrols	Community Patrols
+44301	Anch Bus 1	People Mover 1
+44302	Anch Bus 2	People Mover 2
+44305	Anch Bus Sup	People Mover Supervisors
+44311	AnchorRides1	AnchorRides 1
+44312	AnchorRides2	AnchorRides 2
+44314	Anch Transit Sec	Transit Security
+44404	Anch PD Spe1	Police Special Assignment Units 1
+44405	Anch PD Spe2	Police Special Assignment Units 2
+44410	Anch Street Disp	Street Maintenance Dispatch
+44412	Anch Street 2	Street Maintenance 2
+44413	Anch Street 3	Street Maintenance 3
+44414	Anch Street 4	Street Maintenance 4
+44415	Anch Street 5	Street Maintenance 5
+44441	Anch RadioMt	Radio Maintenance
+44611	Anch Health Srv1	Health and Human Services 1
+44612	Anch Health Srv2	Health and Human Services 2
+44613	Anch Health Srv3	Health and Human Services 3
+44614	Anch Health Srv4	Health and Human Services 4
+44615	Anch Health Srv5	Health and Human Services 5
+44616	Anch Health Srv6	Health and Human Services 6
+44617	Anch Health Srv7	Health and Human Services 7
+44618	Anch Housing 1	Temporary Housing 1
+44619	Anch Housing 2	Temporary Housing 2
+44620	Anch Housing 3	Temporary Housing 3
+44621	Anch A/C Disp	Animal Control Dispatch
+44622	Anch A/C 2	Animal Control 2
+44631	Anch Health Net	Areawide Hospital/Health Services Net
+44701	Anch Emerg 1	Emergency Operations Center 1
+44702	Anch Emerg 2	Emergency Operations Center 2
+44801	Anch Parks	Parks, Recreation and Beautification
+45001	Anch School Call	School District Calling Channel
+45002	Anch School Adm	School District Admin Channel
+45003	ASD Adm Talk	ASD Admin Talkaround
+45004	ASD High Sch	ASD High Schools
+45005	ASD Mid Sch	ASD Middle Schools
+45006	ASD Sec Talk	ASD Security Talkaround
+45007	ASD Elementary	ASD Elementary School
+45008	ASD Elem Talk	ASD Elementary School Talk
+45009	ASD Sp Ed / Mode	ASD Special Education
+45010	ASD Sp Ed Tlk	ASD Special Education Talk
+45011	ASD Fclty Maint	ASD Facility Maintenance
+45012	ASD Support/ Mod	ASD Support
+45013	ASD Sup Talk	ASD Support Talk
+45014	ASD Talkaround	ASD Talkaround
+45016	Anch Schl	School District
+45017	Anch Schl	School District
+45018	Anch Schl	School District
+45301	Anch Museum	Museum Security
+45302	Museum Maint	Museum Maintenance
+45304	Anch Museum	Museum Operations
+45501	EasyPark Sec	Easy Park Security
+45502	EasyPark Met	Easy Park - Meters
+46620	F IC Multigr	Multigroup
+46621	F IC Hail	Hail
+46622	F IC Tac 2	Tac 2
+46623	F IC Tac 3	Tac 3
+46624	F IC Tac 4	Tac 4
+46625	F IC Tac 5	Tac 5
+46626	F IC Tac 6	Tac 6
+46627	F IC Tac 7	Tac 7
+46628	F IC Tac 9	Tac 9
+46631	F IC Tac 10	Tac 10
+46632	F IC Tac 11	Tac 11
+46633	F IC Tac 12	Tac 12
+46634	F IC Tac 13	Tac 13
+46635	F IC Tac 14	Tac 14
+46636	F IC Tac 15	Tac 15
+46701	LE F Tac 1	LE Region F Tac 1
+46702	LE F Tac 2	LE Region F Tac 2
+49001	UAA Police 1	University of Alaska Anchorage Police 1 Dispatch
+49002	UAA Police 2	University of Alaska Anchorage Police 2
+49003	UAA Police 3	University of Alaska Anchorage Police 3
+49021	VA PD Ops	Police Operations - Anchorage
+49022	VA PD Disp	Police Dispatch - Anchorage
+49900	ANC PD/FD	Police/Fire Dispatch
+49901	ANC Tac 1	Airport Tactical 1
+49902	ANC Facilities	Airport Facilities
+49903	ANC Security	Airport Security
+49904	ANC Fire Train	Airport Fire Training
+49905	ANC Tac 5	Airport Tactical 5
+49906	ANC Tac6 	Airport Tactical 6
+61001	AK Defense 1	Alaska State Defense Force 1
+61002	AK Defense 2	Alaska State Defense Force 2
+61003	AK Defense 3	Alaska State Defense Force 3
+61841	LifeMed Helo	LifeMed Alaska Helicopter AirComm

@@ -6,6 +6,12 @@
   <title>ALMR Scanner</title>
   <link rel="stylesheet" href="/static/style.css"/>
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+  <link rel="manifest" href="/static/manifest.webmanifest"/>
+  <meta name="theme-color" content="#0e1116"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="ALMR Scanner"/>
+  <link rel="apple-touch-icon" href="/static/favicon.ico"/>
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src * blob:; connect-src 'self';">
 </head>
@@ -21,8 +27,8 @@
       <span id="listenerCountNum">—</span>
     </span>
     <button id="openWelcome" class="btn" style="margin-left:10px;">Help</button>
-    <button id="openAlerts" class="btn" style="margin-left:6px;">Alerts</button>
     <button id="openAbout" class="btn" style="margin-left:6px;">About</button>
+    <button id="openAlerts" class="btn" style="margin-left:6px;">Alerts</button>
     <button id="themeToggle" class="btn" style="margin-left:auto;">🌙 Dark</button>
   </header>
 
@@ -169,14 +175,121 @@
   </div>
 </div>
 
+<div id="alertsPopup" class="popup-backdrop" style="display:none;">
+  <div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="alertsTitle">
+    <div class="popup-tabs">
+      <span style="font-weight:600;font-size:16px;padding:12px 18px 10px 18px;" id="alertsTitle">Alerts & Auto-Unmute</span>
+      <button class="close-btn" id="closeAlerts" aria-label="Close">&times;</button>
+    </div>
+    <div class="popup-content">
+      <div class="alert-settings">
+        <div class="row" style="align-items:center;gap:8px;">
+          <label for="alertProfileSelect">Profile</label>
+          <select id="alertProfileSelect" class="tg-mode-select" style="max-width:220px;"></select>
+          <button id="alertProfileNew" class="btn" type="button">New</button>
+          <button id="alertProfileSave" class="btn" type="button">Save</button>
+          <button id="alertProfileDelete" class="btn" type="button">Delete</button>
+        </div>
+        <div class="row" style="justify-content:space-between;">
+          <label class="setting-line"><input type="checkbox" id="notifyEnabled"/> Browser notifications</label>
+          <button id="requestNotifyPermission" class="btn" type="button">Enable Notifications</button>
+        </div>
+        <label class="setting-line"><input type="checkbox" id="notifySeparateRules"/> Use separate talkgroup rules for notifications</label>
+        <div class="row" style="align-items:center;gap:8px;">
+          <label for="notifyBurstLimit">Notify first calls per burst</label>
+          <input id="notifyBurstLimit" class="tg-mode-select" type="number" min="1" max="20" step="1" value="2" style="max-width:120px;"/>
+          <label for="notifyBurstResetSec">Reset after quiet (seconds)</label>
+          <input id="notifyBurstResetSec" class="tg-mode-select" type="number" min="5" max="3600" step="1" value="45" style="max-width:120px;"/>
+        </div>
+        <div id="notifyRulesSection" style="display:none;">
+          <div class="row" style="align-items:center;gap:8px;">
+            <label for="notifyTgMode">Notification mode</label>
+            <select id="notifyTgMode" class="tg-mode-select">
+              <option value="whitelist">Whitelist (only selected TGIDs)</option>
+              <option value="blacklist">Blacklist (all except selected TGIDs)</option>
+            </select>
+          </div>
+          <label for="notifyTgSearch" class="muted" style="margin-top:8px;display:block;">Search notification talkgroups</label>
+          <input id="notifyTgSearch" class="tg-search" type="text" placeholder="Filter by TGID or Name"/>
+          <div id="notifyTgCatalog" class="tg-catalog" aria-live="polite"></div>
+          <div class="row" style="justify-content:space-between;">
+            <div id="notifyTgSelectedSummary" class="muted">Notification selected: 0</div>
+            <div class="row" style="gap:6px;">
+              <button id="notifyTgSelectAllVisible" class="btn" type="button">Select Visible</button>
+              <button id="notifyTgClearAll" class="btn" type="button">Clear All</button>
+            </div>
+          </div>
+        </div>
+        <label class="setting-line"><input type="checkbox" id="notifyCategoriesEnabled"/> Use notification categories (different behaviors per category)</label>
+        <div id="notifyCategoriesSection" style="display:none;">
+          <div class="row" style="align-items:center;gap:8px;">
+            <label for="notifyCategorySelect">Category</label>
+            <select id="notifyCategorySelect" class="tg-mode-select" style="max-width:220px;"></select>
+            <button id="notifyCategoryNew" class="btn" type="button">New</button>
+            <button id="notifyCategoryDelete" class="btn" type="button">Delete</button>
+          </div>
+          <div class="row" style="align-items:center;gap:8px;">
+            <label for="notifyCategoryBehavior">Behavior</label>
+            <select id="notifyCategoryBehavior" class="tg-mode-select" style="max-width:260px;">
+              <option value="standard">Standard</option>
+              <option value="priority">Priority (sticky + stronger alert)</option>
+              <option value="quiet">Quiet (minimal vibration)</option>
+            </select>
+          </div>
+          <div class="row" style="align-items:center;gap:8px;">
+            <label for="notifyCategoryMode">Category mode</label>
+            <select id="notifyCategoryMode" class="tg-mode-select">
+              <option value="whitelist">Whitelist (only selected TGIDs)</option>
+              <option value="blacklist">Blacklist (all except selected TGIDs)</option>
+            </select>
+          </div>
+          <label for="notifyCategorySearch" class="muted" style="margin-top:8px;display:block;">Search category talkgroups</label>
+          <input id="notifyCategorySearch" class="tg-search" type="text" placeholder="Filter by TGID or Name"/>
+          <div id="notifyCategoryCatalog" class="tg-catalog" aria-live="polite"></div>
+          <div class="row" style="justify-content:space-between;">
+            <div id="notifyCategorySelectedSummary" class="muted">Category selected: 0</div>
+            <div class="row" style="gap:6px;">
+              <button id="notifyCategorySelectAllVisible" class="btn" type="button">Select Visible</button>
+              <button id="notifyCategoryClearAll" class="btn" type="button">Clear All</button>
+            </div>
+          </div>
+        </div>
+        <label class="setting-line"><input type="checkbox" id="autoUnmuteEnabled"/> Auto-unmute stream on matching TG</label>
+        <div class="row" style="align-items:center;gap:8px;">
+          <label for="autoRemuteDelaySec">Re-mute delay (seconds)</label>
+          <input id="autoRemuteDelaySec" class="tg-mode-select" type="number" min="0" max="300" step="1" value="5" style="max-width:120px;"/>
+        </div>
+        <div class="row" style="align-items:center;gap:8px;">
+          <label for="tgMode">Mode</label>
+          <select id="tgMode" class="tg-mode-select">
+            <option value="whitelist">Whitelist (only selected TGIDs)</option>
+            <option value="blacklist">Blacklist (all except selected TGIDs)</option>
+          </select>
+        </div>
+        <label for="tgSearch" class="muted" style="margin-top:8px;display:block;">Search talkgroups</label>
+        <input id="tgSearch" class="tg-search" type="text" placeholder="Filter by TGID or Name"/>
+        <div id="tgCatalog" class="tg-catalog" aria-live="polite"></div>
+        <div class="row" style="justify-content:space-between;">
+          <div id="tgSelectedSummary" class="muted">Selected: 0</div>
+          <div class="row" style="gap:6px;">
+            <button id="tgSelectAllVisible" class="btn" type="button">Select Visible</button>
+            <button id="tgClearAll" class="btn" type="button">Clear All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="updateNotice" class="update-notice" style="display:none;">
   <button id="updateNoticeClose" class="update-notice-close" aria-label="Close">&times;</button>
 </div>
 
   <!-- was inline; now external to satisfy CSP -->
 <script src="/config.js"></script>
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=9"></script>
 <script src="/static/chart.umd.min.js"></script>
+<script src="/static/pwa-init.js"></script>
 
 </body>
 </html>

@@ -12,9 +12,38 @@ const nowEnc = document.getElementById("nowEnc");
 
 // ===== Config =====
 const IS_FIREFOX = /\bfirefox\/\d+/i.test(navigator.userAgent);
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
 const MAX_ROWS = 200;                    // max rows kept in localStorage
 const LS_KEY = "scanner_history_v1";     // per-browser history key
+const ALERT_SETTINGS_KEY = "scanner_alert_settings_v1";
+const ALERT_PROFILES_KEY = "scanner_alert_profiles_v1";
+const ALERT_ACTIVE_PROFILE_KEY = "scanner_alert_active_profile_v1";
+
+const defaultAlertSettings = {
+  notifyEnabled: false,
+  notifySeparateRules: false,
+  notifyTgMode: "whitelist",
+  notifySelectedTgids: [],
+  notifyBurstLimit: 2,
+  notifyBurstResetSec: 45,
+  notifyCategoriesEnabled: false,
+  notifyCategories: [],
+  autoUnmuteEnabled: false,
+  autoRemuteDelaySec: 5,
+  tgMode: "whitelist",
+  selectedTgids: []
+};
+
+let alertSettings = {...defaultAlertSettings};
+let alertProfiles = {"Default": {...defaultAlertSettings}};
+let activeAlertProfile = "Default";
+let activeNotifyCategoryName = "";
+let talkgroupCatalog = [];
+let lastNotifiedCallKey = "";
+let autoUnmutedForActiveCall = false;
+let autoRemuteTimer = null;
+const notifyBurstStateByTgid = new Map();
 
 try {
   if (!localStorage.getItem(LS_KEY) && localStorage.getItem("scanner_hist")) {
@@ -49,6 +78,489 @@ function saveHist(rows) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(toSave.slice(0, MAX_ROWS)));
   } catch {}
+}
+
+function normalizeAlertSettings(raw) {
+  const src = raw || {};
+  const mode = src.tgMode === "blacklist" ? "blacklist" : "whitelist";
+  const notifyMode = src.notifyTgMode === "blacklist" ? "blacklist" : "whitelist";
+  const selected = Array.isArray(src.selectedTgids)
+    ? src.selectedTgids.map(v => String(v || "").trim()).filter(Boolean)
+    : [];
+  const notifySelected = Array.isArray(src.notifySelectedTgids)
+    ? src.notifySelectedTgids.map(v => String(v || "").trim()).filter(Boolean)
+    : [];
+  const delay = Number.isFinite(Number(src.autoRemuteDelaySec))
+    ? Math.max(0, Math.min(300, Number(src.autoRemuteDelaySec)))
+    : defaultAlertSettings.autoRemuteDelaySec;
+  const burstLimit = Number.isFinite(Number(src.notifyBurstLimit))
+    ? Math.max(1, Math.min(20, Number(src.notifyBurstLimit)))
+    : defaultAlertSettings.notifyBurstLimit;
+  const burstResetSec = Number.isFinite(Number(src.notifyBurstResetSec))
+    ? Math.max(5, Math.min(3600, Number(src.notifyBurstResetSec)))
+    : defaultAlertSettings.notifyBurstResetSec;
+  const normalizeCategory = (cat, idx) => {
+    const c = cat || {};
+    const name = String(c.name || `Category ${idx + 1}`).trim() || `Category ${idx + 1}`;
+    const behavior = c.behavior === "priority" || c.behavior === "quiet" ? c.behavior : "standard";
+    const catMode = c.mode === "blacklist" ? "blacklist" : "whitelist";
+    const catSelected = Array.isArray(c.selectedTgids)
+      ? c.selectedTgids.map(v => String(v || "").trim()).filter(Boolean)
+      : [];
+    return {
+      name,
+      behavior,
+      mode: catMode,
+      selectedTgids: Array.from(new Set(catSelected))
+    };
+  };
+  const rawCategories = Array.isArray(src.notifyCategories) ? src.notifyCategories : [];
+  const categories = rawCategories.map((c, i) => normalizeCategory(c, i));
+  return {
+    notifyEnabled: !!src.notifyEnabled,
+    notifySeparateRules: !!src.notifySeparateRules,
+    notifyTgMode: notifyMode,
+    notifySelectedTgids: Array.from(new Set(notifySelected)),
+    notifyBurstLimit: burstLimit,
+    notifyBurstResetSec: burstResetSec,
+    notifyCategoriesEnabled: !!src.notifyCategoriesEnabled,
+    notifyCategories: categories,
+    autoUnmuteEnabled: !!src.autoUnmuteEnabled,
+    autoRemuteDelaySec: delay,
+    tgMode: mode,
+    selectedTgids: Array.from(new Set(selected))
+  };
+}
+
+function persistAlertProfiles() {
+  try {
+    localStorage.setItem(ALERT_PROFILES_KEY, JSON.stringify(alertProfiles));
+    localStorage.setItem(ALERT_ACTIVE_PROFILE_KEY, activeAlertProfile);
+    // Keep legacy key updated for backwards compatibility.
+    localStorage.setItem(ALERT_SETTINGS_KEY, JSON.stringify(alertSettings));
+  } catch {}
+}
+
+function loadAlertSettings() {
+  try {
+    const rawProfiles = JSON.parse(localStorage.getItem(ALERT_PROFILES_KEY) || "{}");
+    if (rawProfiles && typeof rawProfiles === "object" && Object.keys(rawProfiles).length) {
+      const normalized = {};
+      for (const [name, value] of Object.entries(rawProfiles)) {
+        if (!name) continue;
+        normalized[String(name)] = normalizeAlertSettings(value);
+      }
+      alertProfiles = Object.keys(normalized).length ? normalized : {"Default": {...defaultAlertSettings}};
+    } else {
+      // Migrate from old single-profile settings key if present.
+      const legacyRaw = JSON.parse(localStorage.getItem(ALERT_SETTINGS_KEY) || "{}");
+      alertProfiles = {"Default": normalizeAlertSettings(legacyRaw)};
+    }
+
+    const preferred = String(localStorage.getItem(ALERT_ACTIVE_PROFILE_KEY) || "").trim();
+    if (preferred && alertProfiles[preferred]) {
+      activeAlertProfile = preferred;
+    } else {
+      activeAlertProfile = Object.keys(alertProfiles)[0] || "Default";
+    }
+
+    if (!alertProfiles[activeAlertProfile]) {
+      alertProfiles[activeAlertProfile] = {...defaultAlertSettings};
+    }
+    alertSettings = {...alertProfiles[activeAlertProfile]};
+    persistAlertProfiles();
+  } catch {
+    alertProfiles = {"Default": {...defaultAlertSettings}};
+    activeAlertProfile = "Default";
+    alertSettings = {...defaultAlertSettings};
+  }
+}
+
+function saveAlertSettings() {
+  alertProfiles[activeAlertProfile] = normalizeAlertSettings(alertSettings);
+  alertSettings = {...alertProfiles[activeAlertProfile]};
+  persistAlertProfiles();
+}
+
+function normalizeTgid(tgid) {
+  return String(tgid || "").trim();
+}
+
+function ensureActiveNotifyCategory() {
+  const categories = Array.isArray(alertSettings.notifyCategories) ? alertSettings.notifyCategories : [];
+  if (!categories.length) {
+    activeNotifyCategoryName = "";
+    return;
+  }
+  const found = categories.find(c => c.name === activeNotifyCategoryName);
+  if (!found) {
+    activeNotifyCategoryName = categories[0].name;
+  }
+}
+
+function getActiveNotifyCategory() {
+  ensureActiveNotifyCategory();
+  return (alertSettings.notifyCategories || []).find(c => c.name === activeNotifyCategoryName) || null;
+}
+
+function clearNotifyBurstState() {
+  notifyBurstStateByTgid.clear();
+  lastNotifiedCallKey = "";
+}
+
+function shouldNotifyByBurstLimit(tgid) {
+  const key = normalizeTgid(tgid);
+  if (!key) return true;
+
+  const limit = Math.max(1, Math.min(20, Number(alertSettings.notifyBurstLimit) || 2));
+  const resetMs = Math.max(5, Math.min(3600, Number(alertSettings.notifyBurstResetSec) || 45)) * 1000;
+  const now = Date.now();
+
+  const existing = notifyBurstStateByTgid.get(key);
+  const isNewBurst = !existing || !Number.isFinite(existing.lastSeenTs) || ((now - existing.lastSeenTs) >= resetMs);
+  const state = isNewBurst ? {count: 0, lastSeenTs: now} : existing;
+
+  state.count += 1;
+  state.lastSeenTs = now;
+  notifyBurstStateByTgid.set(key, state);
+
+  return state.count <= limit;
+}
+
+function isTalkgroupMatchByRules(tgid, mode, selectedList) {
+  const tg = normalizeTgid(tgid);
+  if (!tg || !selectedList.length) return false;
+  const selected = new Set(selectedList);
+  const listed = selected.has(tg);
+  return mode === "blacklist" ? !listed : listed;
+}
+
+function matchesUnmuteRules(tgid) {
+  return isTalkgroupMatchByRules(tgid, alertSettings.tgMode, alertSettings.selectedTgids);
+}
+
+function matchesNotifyRules(tgid) {
+  if (alertSettings.notifySeparateRules) {
+    return isTalkgroupMatchByRules(tgid, alertSettings.notifyTgMode, alertSettings.notifySelectedTgids);
+  }
+  return matchesUnmuteRules(tgid);
+}
+
+function matchNotifyCategory(tgid) {
+  if (!alertSettings.notifyCategoriesEnabled) return null;
+  const categories = Array.isArray(alertSettings.notifyCategories) ? alertSettings.notifyCategories : [];
+  for (const category of categories) {
+    if (isTalkgroupMatchByRules(tgid, category.mode, category.selectedTgids || [])) {
+      return category;
+    }
+  }
+  return null;
+}
+
+function maybeNotifyTalkgroup(details, callKey, category = null) {
+  if (!alertSettings.notifyEnabled) return;
+  if (lastNotifiedCallKey === callKey) return;
+
+  const tgid = normalizeTgid(details.tgid) || "Unknown";
+  if (!shouldNotifyByBurstLimit(tgid)) {
+    lastNotifiedCallKey = callKey;
+    return;
+  }
+
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  const name = details.name || "Unknown Talkgroup";
+  const freq = details.freq || "";
+  const body = `${name} (TG ${tgid})${freq ? ` @ ${freq}` : ""}`;
+  const behavior = category && (category.behavior === "priority" || category.behavior === "quiet")
+    ? category.behavior
+    : "standard";
+  const notifyTitle = category ? `${category.name} Active` : "Talkgroup Active";
+
+  function playCategoryCue(kind) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      const plan = kind === "priority"
+        ? [{f: 1046, d: 0.1}, {f: 1568, d: 0.1}, {f: 1046, d: 0.1}]
+        : kind === "quiet"
+          ? [{f: 880, d: 0.08}]
+          : [{f: 988, d: 0.09}, {f: 1318, d: 0.09}];
+      let t = now;
+      for (const p of plan) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = p.f;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + p.d);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + p.d + 0.01);
+        t += p.d + 0.03;
+      }
+      setTimeout(() => {
+        try { ctx.close(); } catch (_) {}
+      }, 900);
+    } catch (_) {
+      // no-op if browser blocks autoplay audio context
+    }
+  }
+
+  function showLocalToast(text) {
+    let toast = document.getElementById("localNotifyToast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "localNotifyToast";
+      Object.assign(toast.style, {
+        position: "fixed",
+        right: "12px",
+        top: "12px",
+        zIndex: "2147483647",
+        maxWidth: "90vw",
+        background: "#1b2a1d",
+        color: "#d9ffe0",
+        border: "1px solid #2f8f46",
+        borderRadius: "8px",
+        padding: "10px 12px",
+        boxShadow: "0 4px 18px rgba(0,0,0,.35)",
+        fontSize: "13px",
+        lineHeight: "1.3",
+      });
+      document.body.appendChild(toast);
+    }
+    toast.textContent = text;
+    toast.style.display = "block";
+    clearTimeout(showLocalToast._timer);
+    showLocalToast._timer = setTimeout(() => {
+      toast.style.display = "none";
+    }, 3500);
+  }
+
+  async function dispatchNotification(title, opts) {
+    try {
+      // Desktop/most browsers path
+      new Notification(title, opts);
+      return true;
+    } catch (_) {
+      // iOS/PWA-friendly fallback path via service worker registration
+      try {
+        if ("serviceWorker" in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          if (reg && reg.showNotification) {
+            await reg.showNotification(title, opts);
+            return true;
+          }
+        }
+      } catch (_) {
+        // swallow and fallback to toast
+      }
+    }
+    return false;
+  }
+
+  const notificationOptions = {
+    body,
+    tag: category ? `cat-${String(category.name).toLowerCase().replace(/\s+/g, "-")}-${tgid}` : `tg-${tgid}`,
+    renotify: behavior === "priority",
+    requireInteraction: behavior === "priority",
+    silent: behavior === "quiet",
+    vibrate: behavior === "priority" ? [260, 100, 260, 100, 260] : behavior === "quiet" ? [60] : [120, 70, 120]
+  };
+
+  dispatchNotification(notifyTitle, notificationOptions).then((shown) => {
+    if (!shown) {
+      showLocalToast(`${notifyTitle}: ${body}`);
+    }
+    playCategoryCue(behavior);
+    if (navigator.vibrate && behavior !== "quiet") {
+      try { navigator.vibrate(notificationOptions.vibrate); } catch (_) {}
+    }
+  });
+
+  lastNotifiedCallKey = callKey;
+}
+
+function maybeAutoUnmute(details) {
+  if (!alertSettings.autoUnmuteEnabled) return;
+  if (!audio) return;
+  if (autoRemuteTimer) {
+    clearTimeout(autoRemuteTimer);
+    autoRemuteTimer = null;
+  }
+  if (audio.muted) {
+    audio.muted = false;
+    autoUnmutedForActiveCall = true;
+    updateMuteButton();
+  }
+}
+
+function scheduleAutoRemute() {
+  if (!autoUnmutedForActiveCall || !audio) return;
+  if (autoRemuteTimer) {
+    clearTimeout(autoRemuteTimer);
+    autoRemuteTimer = null;
+  }
+
+  const delayMs = Math.max(0, Math.min(300, Number(alertSettings.autoRemuteDelaySec) || 0)) * 1000;
+  autoRemuteTimer = setTimeout(() => {
+    autoRemuteTimer = null;
+    if (!lastIdle) return; // a new call started while waiting
+    if (audio && !audio.muted) {
+      audio.muted = true;
+      updateMuteButton();
+    }
+    autoUnmutedForActiveCall = false;
+  }, delayMs);
+}
+
+function handleMatchedTalkgroup(details, callKey) {
+  const categoryMatch = matchNotifyCategory(details.tgid);
+  const notifyMatch = !!categoryMatch || matchesNotifyRules(details.tgid);
+  const unmuteMatch = matchesUnmuteRules(details.tgid);
+  if (notifyMatch) maybeNotifyTalkgroup(details, callKey, categoryMatch);
+  if (unmuteMatch) maybeAutoUnmute(details);
+}
+
+function collectLocalTalkgroups() {
+  const map = new Map();
+  const rows = loadHist();
+  for (const row of rows) {
+    const tgid = normalizeTgid(row.tgid);
+    if (!tgid) continue;
+    const prev = map.get(tgid) || {tgid, name: "", count: 0, airtime: 0};
+    prev.count += 1;
+    if (!prev.name && row.name) prev.name = row.name;
+    map.set(tgid, prev);
+  }
+  return Array.from(map.values()).sort((a, b) => b.count - a.count);
+}
+
+function updateSelectedSummary() {
+  const main = document.getElementById("tgSelectedSummary");
+  if (main) main.textContent = `Selected: ${alertSettings.selectedTgids.length}`;
+  const notify = document.getElementById("notifyTgSelectedSummary");
+  if (notify) notify.textContent = `Notification selected: ${alertSettings.notifySelectedTgids.length}`;
+  const cat = document.getElementById("notifyCategorySelectedSummary");
+  if (cat) {
+    const active = getActiveNotifyCategory();
+    cat.textContent = active
+      ? `Category selected: ${(active.selectedTgids || []).length}`
+      : "Category selected: 0";
+  }
+}
+
+function renderTalkgroupCatalogToHost(hostId, selectedList, onToggle, filterText = "") {
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  const q = String(filterText || "").toLowerCase().trim();
+  const selected = new Set(selectedList);
+
+  const items = talkgroupCatalog.filter(tg => {
+    if (!q) return true;
+    return String(tg.tgid || "").toLowerCase().includes(q) ||
+      String(tg.name || "").toLowerCase().includes(q);
+  });
+
+  if (!items.length) {
+    host.innerHTML = '<div class="muted">No talkgroups found.</div>';
+    updateSelectedSummary();
+    return;
+  }
+
+  host.innerHTML = items.map(tg => {
+    const tgid = String(tg.tgid || "").replace(/"/g, "&quot;");
+    const name = String(tg.name || "");
+    const count = Number(tg.count || 0);
+    const checked = selected.has(String(tg.tgid || "")) ? "checked" : "";
+    return `
+      <div class="tg-item">
+        <label>
+          <input type="checkbox" class="tg-check" data-tgid="${tgid}" ${checked}/>
+          <span class="tg-id">${tgid}</span>
+          <span class="tg-name">${name || "(unnamed)"}</span>
+          <span class="tg-count">calls: ${count}</span>
+        </label>
+      </div>`;
+  }).join("");
+
+  host.querySelectorAll(".tg-check").forEach(cb => {
+    cb.addEventListener("change", (e) => {
+      const tgid = normalizeTgid(e.target.getAttribute("data-tgid"));
+      onToggle(tgid, !!e.target.checked);
+      saveAlertSettings();
+      updateSelectedSummary();
+    });
+  });
+
+  updateSelectedSummary();
+}
+
+function renderTalkgroupCatalog(filterText = "") {
+  renderTalkgroupCatalogToHost(
+    "tgCatalog",
+    alertSettings.selectedTgids,
+    (tgid, checked) => {
+      const set = new Set(alertSettings.selectedTgids);
+      if (checked) set.add(tgid); else set.delete(tgid);
+      alertSettings.selectedTgids = Array.from(set);
+    },
+    filterText
+  );
+}
+
+function renderNotifyTalkgroupCatalog(filterText = "") {
+  renderTalkgroupCatalogToHost(
+    "notifyTgCatalog",
+    alertSettings.notifySelectedTgids,
+    (tgid, checked) => {
+      const set = new Set(alertSettings.notifySelectedTgids);
+      if (checked) set.add(tgid); else set.delete(tgid);
+      alertSettings.notifySelectedTgids = Array.from(set);
+    },
+    filterText
+  );
+}
+
+function renderNotifyCategoryTalkgroupCatalog(filterText = "") {
+  const active = getActiveNotifyCategory();
+  const host = document.getElementById("notifyCategoryCatalog");
+  if (!host) return;
+  if (!active) {
+    host.innerHTML = '<div class="muted">Create a category to map talkgroups.</div>';
+    updateSelectedSummary();
+    return;
+  }
+
+  renderTalkgroupCatalogToHost(
+    "notifyCategoryCatalog",
+    active.selectedTgids,
+    (tgid, checked) => {
+      const cat = getActiveNotifyCategory();
+      if (!cat) return;
+      const set = new Set(cat.selectedTgids || []);
+      if (checked) set.add(tgid); else set.delete(tgid);
+      cat.selectedTgids = Array.from(set);
+    },
+    filterText
+  );
+}
+
+async function loadTalkgroupCatalog() {
+  try {
+    const r = await fetch("/api/talkgroups", {cache: "no-store"});
+    if (!r.ok) throw new Error("catalog fetch failed");
+    const js = await r.json();
+    if (!js.ok || !Array.isArray(js.talkgroups)) throw new Error("bad catalog");
+    talkgroupCatalog = js.talkgroups;
+  } catch (e) {
+    console.warn("Talkgroup catalog fallback to local history:", e);
+    talkgroupCatalog = collectLocalTalkgroups();
+  }
 }
 function renderHist(rows){
   if (!histTbd) return;
@@ -331,7 +843,7 @@ function liveEdge(){
 // Throttled “snap” (Chrome/Edge only). Firefox: do NOTHING.
 let _lastSnap = 0;
 function snapToLiveIfLagging(){
-  if (!audio || audio.paused || IS_FIREFOX) return; // ← bail on Firefox
+  if (!audio || audio.paused || IS_FIREFOX || IS_MOBILE) return; // mobile/FF: avoid aggressive seeks
   const now = performance.now();
   if (now - _lastSnap < 1000) return;              // throttle to 1x/sec
   const edge = liveEdge();
@@ -415,11 +927,12 @@ if (audio){
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    // Don’t auto-recover while hidden
-    userPaused = userPaused || audio?.paused || false;
-  } else {
-    if (!userPaused) restartStream();
+  if (document.hidden) return;
+  if (!audio || userPaused) return;
+
+  // Try to resume without reconnecting first (better for mobile background use).
+  if (audio.paused) {
+    audio.play().catch(() => restartStream());
   }
 });
 
@@ -667,6 +1180,10 @@ async function pollLive(){
 
     // When a call starts, record its details and start time
     if (lastIdle && !idle && callKey) {
+      if (autoRemuteTimer) {
+        clearTimeout(autoRemuteTimer);
+        autoRemuteTimer = null;
+      }
       callStartTs = tsSec;
       callStartDetails = {
         freq: n.freq || "",
@@ -675,6 +1192,7 @@ async function pollLive(){
         source: n.source || "",
         enc: n.enc || ""
       };
+      handleMatchedTalkgroup(callStartDetails, callKey);
 
       // --- Start recording only when audio is playing ---
       if (audio && audio.captureStream) {
@@ -710,6 +1228,12 @@ async function pollLive(){
     if (!lastIdle && idle && callStartTs != null && callStartDetails) {
       const callEndTs = lastActiveTs ? lastActiveTs / 1000 : callStartTs;
       const duration = Math.max(0, callEndTs - callStartTs);
+      // Allow new notifications for a later call even if it has the same talkgroup/call key.
+      lastNotifiedCallKey = "";
+
+      // If we auto-unmuted for this matched call, re-mute after configured delay.
+      scheduleAutoRemute();
+
       const row = {
         time: new Date().toISOString(),
         freq: callStartDetails.freq,
@@ -902,10 +1426,10 @@ function startVu(analyser) {
 
   const isFirefox = /\bfirefox\/\d+/i.test(navigator.userAgent);
 
-  if (isFirefox) {
+  if (isFirefox || IS_MOBILE) {
     // Firefox: play through the element; VU via captureStream if possible
     el.muted = false; // element outputs directly (you already control volume via #vol)
-    console.log('[AUDIO] Firefox: direct element playback');
+    console.log('[AUDIO] direct element playback mode');
 
     let vuInit = false;
     const initVuFF = () => {
@@ -948,8 +1472,12 @@ function startVu(analyser) {
       }
     };
 
-    // Start the VU after playback begins (captureStream works best then)
-    if (!el.paused) initVuFF(); else el.addEventListener('playing', initVuFF, { once:true });
+    // Mobile browsers frequently throttle/suspend background processing.
+    // Skip VU analyzer on mobile for better background playback reliability.
+    if (!IS_MOBILE) {
+      // Start the VU after playback begins (captureStream works best then)
+      if (!el.paused) initVuFF(); else el.addEventListener('playing', initVuFF, { once:true });
+    }
     return;
   }
 
@@ -1036,12 +1564,21 @@ function startVu(analyser) {
 })();
 
 // boot
+loadAlertSettings();
 renderHist(loadHist());
 mergeServerHistory();
 ensureAudio();           // single, authoritative init
 pollLive();
 setInterval(pollLive, POLL_MS);
 setInterval(updateLastHeard, 1000);
+loadTalkgroupCatalog().then(() => {
+  const search = document.getElementById("tgSearch");
+  const notifySearch = document.getElementById("notifyTgSearch");
+  const catSearch = document.getElementById("notifyCategorySearch");
+  renderTalkgroupCatalog(search ? search.value : "");
+  renderNotifyTalkgroupCatalog(notifySearch ? notifySearch.value : "");
+  renderNotifyCategoryTalkgroupCatalog(catSearch ? catSearch.value : "");
+});
 
 // ===== Icecast listener count =====
 const listenerCountEl = document.getElementById('listenerCount');
@@ -1075,13 +1612,6 @@ updateListenerCount(); // initial call
 
 document.addEventListener("DOMContentLoaded", function() {
   // Popup logic
-  function switchWelcomeTab(tabName) {
-    const tabs = document.querySelectorAll("#welcomePopup .popup-tabs .tab-btn[data-tab]");
-    const panels = document.querySelectorAll("#welcomePopup .tab-content");
-    tabs.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
-    panels.forEach(panel => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
-  }
-
   function showPopup(id) {
     const el = document.getElementById(id);
     if (el) {
@@ -1098,17 +1628,330 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Welcome popup tab switching
-  document.getElementById("openWelcome")?.addEventListener("click", () => {
-    switchWelcomeTab("instructions");
-    showPopup("welcomePopup");
-  });
-  document.getElementById("openAlerts")?.addEventListener("click", () => {
-    switchWelcomeTab("policy");
-    showPopup("welcomePopup");
-  });
+  document.getElementById("openWelcome")?.addEventListener("click", () => showPopup("welcomePopup"));
   document.getElementById("closePopup")?.addEventListener("click", () => hidePopup("welcomePopup"));
   document.getElementById("openAbout")?.addEventListener("click", () => showPopup("aboutPopup"));
   document.getElementById("closeAbout")?.addEventListener("click", () => hidePopup("aboutPopup"));
+  document.getElementById("openAlerts")?.addEventListener("click", () => {
+    const search = document.getElementById("tgSearch");
+    const notifySearch = document.getElementById("notifyTgSearch");
+    renderTalkgroupCatalog(search ? search.value : "");
+    renderNotifyTalkgroupCatalog(notifySearch ? notifySearch.value : "");
+    showPopup("alertsPopup");
+  });
+  document.getElementById("closeAlerts")?.addEventListener("click", () => hidePopup("alertsPopup"));
+
+  const notifyEnabled = document.getElementById("notifyEnabled");
+  const alertProfileSelect = document.getElementById("alertProfileSelect");
+  const alertProfileNew = document.getElementById("alertProfileNew");
+  const alertProfileSave = document.getElementById("alertProfileSave");
+  const alertProfileDelete = document.getElementById("alertProfileDelete");
+  const notifySeparateRules = document.getElementById("notifySeparateRules");
+  const notifyRulesSection = document.getElementById("notifyRulesSection");
+  const notifyTgMode = document.getElementById("notifyTgMode");
+  const notifyBurstLimit = document.getElementById("notifyBurstLimit");
+  const notifyBurstResetSec = document.getElementById("notifyBurstResetSec");
+  const notifyTgSearch = document.getElementById("notifyTgSearch");
+  const notifyTgSelectAllVisible = document.getElementById("notifyTgSelectAllVisible");
+  const notifyTgClearAll = document.getElementById("notifyTgClearAll");
+  const notifyCategoriesEnabled = document.getElementById("notifyCategoriesEnabled");
+  const notifyCategoriesSection = document.getElementById("notifyCategoriesSection");
+  const notifyCategorySelect = document.getElementById("notifyCategorySelect");
+  const notifyCategoryNew = document.getElementById("notifyCategoryNew");
+  const notifyCategoryDelete = document.getElementById("notifyCategoryDelete");
+  const notifyCategoryBehavior = document.getElementById("notifyCategoryBehavior");
+  const notifyCategoryMode = document.getElementById("notifyCategoryMode");
+  const notifyCategorySearch = document.getElementById("notifyCategorySearch");
+  const notifyCategorySelectAllVisible = document.getElementById("notifyCategorySelectAllVisible");
+  const notifyCategoryClearAll = document.getElementById("notifyCategoryClearAll");
+  const autoUnmuteEnabled = document.getElementById("autoUnmuteEnabled");
+  const autoRemuteDelaySec = document.getElementById("autoRemuteDelaySec");
+  const tgMode = document.getElementById("tgMode");
+  const tgSearch = document.getElementById("tgSearch");
+  const requestNotifyPermission = document.getElementById("requestNotifyPermission");
+  const tgSelectAllVisible = document.getElementById("tgSelectAllVisible");
+  const tgClearAll = document.getElementById("tgClearAll");
+
+  function refreshProfileSelect() {
+    if (!alertProfileSelect) return;
+    const names = Object.keys(alertProfiles).sort((a, b) => a.localeCompare(b));
+    alertProfileSelect.innerHTML = names
+      .map(name => `<option value="${name.replace(/"/g, "&quot;")}">${name}</option>`)
+      .join("");
+    alertProfileSelect.value = activeAlertProfile;
+  }
+
+  function applyAlertSettingsToControls() {
+    ensureActiveNotifyCategory();
+    if (notifyEnabled) notifyEnabled.checked = !!alertSettings.notifyEnabled;
+    if (notifySeparateRules) notifySeparateRules.checked = !!alertSettings.notifySeparateRules;
+    if (notifyTgMode) notifyTgMode.value = alertSettings.notifyTgMode;
+    if (notifyBurstLimit) notifyBurstLimit.value = String(alertSettings.notifyBurstLimit);
+    if (notifyBurstResetSec) notifyBurstResetSec.value = String(alertSettings.notifyBurstResetSec);
+    if (notifyCategoriesEnabled) notifyCategoriesEnabled.checked = !!alertSettings.notifyCategoriesEnabled;
+    if (autoUnmuteEnabled) autoUnmuteEnabled.checked = !!alertSettings.autoUnmuteEnabled;
+    if (autoRemuteDelaySec) autoRemuteDelaySec.value = String(alertSettings.autoRemuteDelaySec);
+    if (tgMode) tgMode.value = alertSettings.tgMode;
+    if (notifyRulesSection) notifyRulesSection.style.display = alertSettings.notifySeparateRules ? "block" : "none";
+    if (notifyCategoriesSection) notifyCategoriesSection.style.display = alertSettings.notifyCategoriesEnabled ? "block" : "none";
+    if (notifyCategorySelect) {
+      const categories = Array.isArray(alertSettings.notifyCategories) ? alertSettings.notifyCategories : [];
+      notifyCategorySelect.innerHTML = categories
+        .map(c => `<option value="${String(c.name).replace(/"/g, "&quot;")}">${c.name}</option>`)
+        .join("");
+      notifyCategorySelect.value = activeNotifyCategoryName;
+    }
+    const activeCategory = getActiveNotifyCategory();
+    if (notifyCategoryBehavior) notifyCategoryBehavior.value = activeCategory ? activeCategory.behavior : "standard";
+    if (notifyCategoryMode) notifyCategoryMode.value = activeCategory ? activeCategory.mode : "whitelist";
+    renderTalkgroupCatalog(tgSearch ? tgSearch.value : "");
+    renderNotifyTalkgroupCatalog(notifyTgSearch ? notifyTgSearch.value : "");
+    renderNotifyCategoryTalkgroupCatalog(notifyCategorySearch ? notifyCategorySearch.value : "");
+    updateSelectedSummary();
+    refreshProfileSelect();
+  }
+
+  function switchAlertProfile(name) {
+    if (!name || !alertProfiles[name]) return;
+    activeAlertProfile = name;
+    alertSettings = {...alertProfiles[name]};
+    clearNotifyBurstState();
+    persistAlertProfiles();
+    applyAlertSettingsToControls();
+  }
+
+  alertProfileSelect?.addEventListener("change", () => {
+    switchAlertProfile(alertProfileSelect.value);
+  });
+
+  alertProfileNew?.addEventListener("click", () => {
+    const proposed = window.prompt("New profile name:", "New Profile");
+    const name = String(proposed || "").trim();
+    if (!name) return;
+    if (alertProfiles[name]) {
+      window.alert("A profile with that name already exists.");
+      return;
+    }
+    alertProfiles[name] = normalizeAlertSettings(alertSettings);
+    switchAlertProfile(name);
+  });
+
+  alertProfileSave?.addEventListener("click", () => {
+    saveAlertSettings();
+    refreshProfileSelect();
+  });
+
+  alertProfileDelete?.addEventListener("click", () => {
+    const names = Object.keys(alertProfiles);
+    if (names.length <= 1) {
+      window.alert("At least one profile must remain.");
+      return;
+    }
+    if (!window.confirm(`Delete profile '${activeAlertProfile}'?`)) return;
+    delete alertProfiles[activeAlertProfile];
+    const next = Object.keys(alertProfiles).sort((a, b) => a.localeCompare(b))[0];
+    switchAlertProfile(next);
+  });
+
+  applyAlertSettingsToControls();
+
+  notifyEnabled?.addEventListener("change", () => {
+    alertSettings.notifyEnabled = !!notifyEnabled.checked;
+    saveAlertSettings();
+  });
+
+  notifySeparateRules?.addEventListener("change", () => {
+    alertSettings.notifySeparateRules = !!notifySeparateRules.checked;
+    if (notifyRulesSection) notifyRulesSection.style.display = alertSettings.notifySeparateRules ? "block" : "none";
+    saveAlertSettings();
+    updateSelectedSummary();
+  });
+
+  notifyCategoriesEnabled?.addEventListener("change", () => {
+    alertSettings.notifyCategoriesEnabled = !!notifyCategoriesEnabled.checked;
+    if (notifyCategoriesSection) notifyCategoriesSection.style.display = alertSettings.notifyCategoriesEnabled ? "block" : "none";
+    saveAlertSettings();
+  });
+
+  notifyCategorySelect?.addEventListener("change", () => {
+    activeNotifyCategoryName = notifyCategorySelect.value;
+    applyAlertSettingsToControls();
+  });
+
+  notifyCategoryNew?.addEventListener("click", () => {
+    const proposed = window.prompt("New category name:", "Category");
+    const name = String(proposed || "").trim();
+    if (!name) return;
+    const categories = Array.isArray(alertSettings.notifyCategories) ? alertSettings.notifyCategories : [];
+    if (categories.some(c => c.name === name)) {
+      window.alert("A category with that name already exists.");
+      return;
+    }
+    categories.push({name, behavior: "standard", mode: "whitelist", selectedTgids: []});
+    alertSettings.notifyCategories = categories;
+    activeNotifyCategoryName = name;
+    alertSettings.notifyCategoriesEnabled = true;
+    saveAlertSettings();
+    applyAlertSettingsToControls();
+  });
+
+  notifyCategoryDelete?.addEventListener("click", () => {
+    const categories = Array.isArray(alertSettings.notifyCategories) ? alertSettings.notifyCategories : [];
+    const active = getActiveNotifyCategory();
+    if (!active) return;
+    if (!window.confirm(`Delete category '${active.name}'?`)) return;
+    alertSettings.notifyCategories = categories.filter(c => c.name !== active.name);
+    ensureActiveNotifyCategory();
+    saveAlertSettings();
+    applyAlertSettingsToControls();
+  });
+
+  notifyCategoryBehavior?.addEventListener("change", () => {
+    const active = getActiveNotifyCategory();
+    if (!active) return;
+    active.behavior = notifyCategoryBehavior.value === "priority" || notifyCategoryBehavior.value === "quiet"
+      ? notifyCategoryBehavior.value
+      : "standard";
+    saveAlertSettings();
+  });
+
+  notifyCategoryMode?.addEventListener("change", () => {
+    const active = getActiveNotifyCategory();
+    if (!active) return;
+    active.mode = notifyCategoryMode.value === "blacklist" ? "blacklist" : "whitelist";
+    saveAlertSettings();
+  });
+
+  notifyCategorySearch?.addEventListener("input", () => {
+    renderNotifyCategoryTalkgroupCatalog(notifyCategorySearch.value);
+  });
+
+  notifyTgMode?.addEventListener("change", () => {
+    alertSettings.notifyTgMode = notifyTgMode.value === "blacklist" ? "blacklist" : "whitelist";
+    saveAlertSettings();
+  });
+
+  notifyBurstLimit?.addEventListener("input", () => {
+    const val = Math.max(1, Math.min(20, Number(notifyBurstLimit.value) || 2));
+    alertSettings.notifyBurstLimit = val;
+    notifyBurstLimit.value = String(val);
+    clearNotifyBurstState();
+    saveAlertSettings();
+  });
+
+  notifyBurstResetSec?.addEventListener("input", () => {
+    const val = Math.max(5, Math.min(3600, Number(notifyBurstResetSec.value) || 45));
+    alertSettings.notifyBurstResetSec = val;
+    notifyBurstResetSec.value = String(val);
+    clearNotifyBurstState();
+    saveAlertSettings();
+  });
+
+  autoUnmuteEnabled?.addEventListener("change", () => {
+    alertSettings.autoUnmuteEnabled = !!autoUnmuteEnabled.checked;
+    if (!alertSettings.autoUnmuteEnabled && autoRemuteTimer) {
+      clearTimeout(autoRemuteTimer);
+      autoRemuteTimer = null;
+      autoUnmutedForActiveCall = false;
+    }
+    saveAlertSettings();
+  });
+
+  autoRemuteDelaySec?.addEventListener("input", () => {
+    const val = Math.max(0, Math.min(300, Number(autoRemuteDelaySec.value) || 0));
+    alertSettings.autoRemuteDelaySec = val;
+    autoRemuteDelaySec.value = String(val);
+    saveAlertSettings();
+  });
+
+  tgMode?.addEventListener("change", () => {
+    alertSettings.tgMode = tgMode.value === "blacklist" ? "blacklist" : "whitelist";
+    saveAlertSettings();
+  });
+
+  tgSearch?.addEventListener("input", () => {
+    renderTalkgroupCatalog(tgSearch.value);
+  });
+
+  notifyTgSearch?.addEventListener("input", () => {
+    renderNotifyTalkgroupCatalog(notifyTgSearch.value);
+  });
+
+  tgSelectAllVisible?.addEventListener("click", () => {
+    const checks = document.querySelectorAll("#tgCatalog .tg-check");
+    const set = new Set(alertSettings.selectedTgids);
+    checks.forEach(cb => {
+      const tgid = normalizeTgid(cb.getAttribute("data-tgid"));
+      set.add(tgid);
+      cb.checked = true;
+    });
+    alertSettings.selectedTgids = Array.from(set);
+    saveAlertSettings();
+    updateSelectedSummary();
+  });
+
+  tgClearAll?.addEventListener("click", () => {
+    alertSettings.selectedTgids = [];
+    saveAlertSettings();
+    renderTalkgroupCatalog(tgSearch ? tgSearch.value : "");
+  });
+
+  notifyTgSelectAllVisible?.addEventListener("click", () => {
+    const checks = document.querySelectorAll("#notifyTgCatalog .tg-check");
+    const set = new Set(alertSettings.notifySelectedTgids);
+    checks.forEach(cb => {
+      const tgid = normalizeTgid(cb.getAttribute("data-tgid"));
+      set.add(tgid);
+      cb.checked = true;
+    });
+    alertSettings.notifySelectedTgids = Array.from(set);
+    saveAlertSettings();
+    updateSelectedSummary();
+  });
+
+  notifyTgClearAll?.addEventListener("click", () => {
+    alertSettings.notifySelectedTgids = [];
+    saveAlertSettings();
+    renderNotifyTalkgroupCatalog(notifyTgSearch ? notifyTgSearch.value : "");
+  });
+
+  notifyCategorySelectAllVisible?.addEventListener("click", () => {
+    const active = getActiveNotifyCategory();
+    if (!active) return;
+    const checks = document.querySelectorAll("#notifyCategoryCatalog .tg-check");
+    const set = new Set(active.selectedTgids || []);
+    checks.forEach(cb => {
+      const tgid = normalizeTgid(cb.getAttribute("data-tgid"));
+      set.add(tgid);
+      cb.checked = true;
+    });
+    active.selectedTgids = Array.from(set);
+    saveAlertSettings();
+    updateSelectedSummary();
+  });
+
+  notifyCategoryClearAll?.addEventListener("click", () => {
+    const active = getActiveNotifyCategory();
+    if (!active) return;
+    active.selectedTgids = [];
+    saveAlertSettings();
+    renderNotifyCategoryTalkgroupCatalog(notifyCategorySearch ? notifyCategorySearch.value : "");
+  });
+
+  requestNotifyPermission?.addEventListener("click", async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support notifications.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      alertSettings.notifyEnabled = true;
+      if (notifyEnabled) notifyEnabled.checked = true;
+      saveAlertSettings();
+    }
+  });
+
+  updateSelectedSummary();
 
   // Tab switching for welcome popup
   document.querySelectorAll(".popup-tabs .tab-btn").forEach(btn => {

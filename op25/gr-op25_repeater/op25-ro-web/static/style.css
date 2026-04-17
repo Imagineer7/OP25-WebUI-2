@@ -652,3 +652,69 @@ html, body{ max-width:100%; overflow-x:hidden; }
   outline: 2px solid var(--accent, #3dd6ff);
 }
 
+.alert-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setting-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tg-mode-select,
+.tg-search {
+  width: 100%;
+  background: var(--band);
+  color: var(--fg);
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.tg-catalog {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  background: var(--band);
+  padding: 8px;
+}
+
+.tg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tg-item:last-child {
+  border-bottom: 0;
+}
+
+.tg-item label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.tg-id {
+  min-width: 66px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.tg-name {
+  flex: 1;
+}
+
+.tg-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
