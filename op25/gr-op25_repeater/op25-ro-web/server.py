@@ -10,6 +10,8 @@ import pytz
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
+OP25_BASE      = os.getenv("OP25_BASE",      "http://127.0.0.1:8080")
+OP25_RO_NOW    = os.getenv("OP25_RO_NOW_URL", f"{OP25_BASE.rstrip('/')}/ro-now")
 LISTEN_ADDR    = os.getenv("LISTEN_ADDR",    "0.0.0.0")
 LISTEN_PORT    = int(os.getenv("LISTEN_PORT", "9090"))
 TIMEOUT        = float(os.getenv("TIMEOUT",   "2.5"))
@@ -164,7 +166,7 @@ def api_live():
             expires = testcall_override["expires"]
 
         # Fetch real data
-        r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
+        r = requests.get(OP25_RO_NOW, timeout=2.0)
         r.raise_for_status()
         real_data = r.json()
 
@@ -354,7 +356,7 @@ def poll_and_update_short_history_and_stats():
 
     while True:
         try:
-            r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
+            r = requests.get(OP25_RO_NOW, timeout=2.0)
             r.raise_for_status()
             data = r.json()
             n = data.get("now", {})
