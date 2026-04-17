@@ -1075,6 +1075,13 @@ updateListenerCount(); // initial call
 
 document.addEventListener("DOMContentLoaded", function() {
   // Popup logic
+  function switchWelcomeTab(tabName) {
+    const tabs = document.querySelectorAll("#welcomePopup .popup-tabs .tab-btn[data-tab]");
+    const panels = document.querySelectorAll("#welcomePopup .tab-content");
+    tabs.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
+    panels.forEach(panel => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
+  }
+
   function showPopup(id) {
     const el = document.getElementById(id);
     if (el) {
@@ -1091,7 +1098,14 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Welcome popup tab switching
-  document.getElementById("openWelcome")?.addEventListener("click", () => showPopup("welcomePopup"));
+  document.getElementById("openWelcome")?.addEventListener("click", () => {
+    switchWelcomeTab("instructions");
+    showPopup("welcomePopup");
+  });
+  document.getElementById("openAlerts")?.addEventListener("click", () => {
+    switchWelcomeTab("policy");
+    showPopup("welcomePopup");
+  });
   document.getElementById("closePopup")?.addEventListener("click", () => hidePopup("welcomePopup"));
   document.getElementById("openAbout")?.addEventListener("click", () => showPopup("aboutPopup"));
   document.getElementById("closeAbout")?.addEventListener("click", () => hidePopup("aboutPopup"));
