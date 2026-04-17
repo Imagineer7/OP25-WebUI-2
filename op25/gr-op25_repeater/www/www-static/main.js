@@ -1,7 +1,7 @@
 
 // Copyright 2017, 2018 Max H. Parke KA1RBI
 // Copyright 2018, 2019, 2020, 2021 gnorbury@bondcar.com
-// JavaScript UI Updates, Michael Rose, 2025, 2026
+// JavaScript UI Updates, Michael Rose, 2025
 //
 // This file is part of OP25
 //
@@ -20,7 +20,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-const lastUpdate = "12-Feb-2026 16:40";
+const lastUpdate = "28-Apr-2025 9:46";
 
 var d_debug = 1;
 // default smartColors - will be overwritten by smartColors contained in json, if present
@@ -54,53 +54,19 @@ var c_name = "";
 var channel_list = [];
 var channel_index = 0;
 var default_channel = null;
-var ws_endpoints = {};
-var ws_channel = 0;
-var ws_endpt = null;
 var enc_sym = "&#216;";
 // var presets = [];
 var site_alias = [];
 var newPresets = [];
 var noPresetsCounter = 0;
 localStorage.setItem('getConfigBtn', 0);
-
-var lg_step = 1200;  				// these are defaults, they are updated in term_config() if present.
+var lg_step = 1200;  // these are defaults, they are updated in term_config() if present.
 var sm_step = 100;
+const MAX_HISTORY_ROWS 		= 10; 	// number of rows to consider "recent" and duplicate by appendCallHistory
+const MAX_HISTORY_SECONDS 	= 5; 	// number of rows to consider "recent" and duplicate by appendCallHistory
+const MAX_TG_CHARS 			= 20;	// max number of characters for talkgroup tags in freq table
 
-
-// MAX_HISTORY_ROWS: Maximum number of entries retained in the Call History table.
-// Older rows beyond this limit should be pruned to prevent unbounded
-// table growth and UI performance degradation.
-const MAX_HISTORY_ROWS = 1000;
-
-
-// MAX_HISTORY_SECONDS: Time window (in seconds) used by appendCallHistory() to suppress duplicates.
-// If the same system + talkgroup + source appears again within this many seconds,
-// the entry is treated as already logged and will not be added again.
-const MAX_HISTORY_SECONDS 	= 5 ;
-
-
-// MAX_TG_CHARS: Maximum length of talkgroup tag text shown in the frequency table.
-// Tags longer than this should be truncated to keep the table readable
-// and prevent layout stretching.
-const MAX_TG_CHARS = 20;
-
-
-// remember sysid:tgid:tgtags for when a tgid shows up without its tag.
-var TG_TAG_CACHE = {}; // { "1A2": { "1234": "PD Dispatch", ... }, ... }
-
-// stores the time a tg was last seen so duplicates are avoided in the call history table
-var callHistorySeen = new Map(); // key -> lastSeenMs
-
-// stores sort params for the seen talkgroup table popup
-var SEEN_TG_SORT = { col: null, asc: true };
-var SEEN_TG_SORT_COL = 0;   // default: System
-var SEEN_TG_SORT_DIR = 1;   // 1 = asc, -1 = desc
-
-// ---- SubReg sort state (no sorting until user clicks) ----
-var subSortKey = null;  // time | system | tgid | tgtag | id | ag
-var subSortDir = 1;     // 1 asc, -1 desc
-var SUB_SEARCH_SORT = { col: null, dir: "asc" }; // popup-only sort state
+const $ = (id) => document.getElementById(id);
 
 const mediaQuery = window.matchMedia("(min-width: 1500px)");
 mediaQuery.addEventListener("change", handleColumnLayoutChange);
@@ -109,20 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	document.getElementById("lastUiUpdate").innerText = lastUpdate;
 	
-    var displaySystem    = document.getElementById("displaySystem");
-    var displayFreq      = document.getElementById("displayFreq");
-
-    var displayTalkgroup = document.getElementById("displayTalkgroup");
-    var displayTgid      = document.getElementById("displayTgid");
-
-    var displaySource    = document.getElementById("displaySource");
-    var displaySourceId  = document.getElementById("displaySourceId");
-
-    var displayEnc       = document.getElementById("displayEnc");
-    var displayEmg       = document.getElementById("displayEmg");    
-    
-    var displayChannel	 = document.getElementById("displayChannel");
-    var displayService	 = document.getElementById("displayService");
+    // Removed unused variable assignments to UI elements.  Use helper function $() instead.
 
 	const heightInput = document.getElementById("callHeightControl");
 	const scrollDiv = document.querySelector(".call-history-scroll");
@@ -136,7 +89,8 @@ document.addEventListener("DOMContentLoaded", function() {
 	});
 	}
 	    	
-	loadSettingsFromLocalStorage();	
+	loadSettingsFromLocalStorage();
+  restoreCallHistoryFromLocalStorage();	
 	
 	const sizeInput = document.getElementById("plotSizeControl");
   
@@ -160,8 +114,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	document.getElementById("radioIdFreqTable").addEventListener("change", saveSettingsToLocalStorage);	
 	document.getElementById("channelsTableToggle").addEventListener("change", saveSettingsToLocalStorage);	
 	document.getElementById("showBandPlan").addEventListener("change", saveSettingsToLocalStorage);	
-	document.getElementById("trackSubsToggle").addEventListener("change", saveSettingsToLocalStorage);	
-	document.getElementById("subMode").addEventListener("change", saveSettingsToLocalStorage);	
 	
 	document.getElementById("valueColorPicker").addEventListener("change", function() {
 		document.documentElement.style.setProperty('--values', this.value);
@@ -214,31 +166,33 @@ document.addEventListener("DOMContentLoaded", function() {
 	window.addEventListener('keydown', handlePopupClose);
 	
 	function handlePopupClose(event) {
-	  const popupContainers = [
-		{ container: 'popupContainer', content: '.popup-content' },
-		{ container: 'settingsPopupContainer', content: '.settings-popup-content' },
-		{ container: 'aboutPopupContainer', content: '.about-popup-content' }
-	  ];
-	
-	  popupContainers.forEach(({ container, content }) => {
-		const popup = document.getElementById(container);
-		const popupContent = document.querySelector(content);
-	
-		// Handle click outside
-		if (event.type === 'click') {
-		  if (popup && popup.classList.contains('show') && popupContent && !popupContent.contains(event.target)) {
-			togglePopup(container, false);
-		  }
-		}
-	
-		// Handle escape key
-		if (event.type === 'keydown' && event.key === 'Escape') {
-		  if (popup && popup.classList.contains('show')) {
-			togglePopup(container, false);
-		  }
-		}
-	  });
-	}
+    const popupContainers = [
+      { container: 'popupContainer', content: '.popup-content' },
+      { container: 'settingsPopupContainer', content: '.settings-popup-content' },
+      { container: 'aboutPopupContainer', content: '.about-popup-content' }
+    ];
+
+    popupContainers.forEach(({ container, content }) => {
+      const popup = document.getElementById(container);
+      const popupContent = document.querySelector(content);
+      if (!popup || !popup.classList.contains('show')) return;
+
+      // Close on ESC
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        togglePopup(container, false);
+        return;
+      }
+
+      // Close only when clicking the BACKDROP (inside overlay but outside content)
+      if (event.type === 'click') {
+        const clickedInsideOverlay = popup.contains(event.target);
+        const clickedInsideContent = popupContent && popupContent.contains(event.target);
+        if (clickedInsideOverlay && !clickedInsideContent) {
+          togglePopup(container, false);
+        }
+      }
+    });
+  }
 });  // end DOM ready / DOMContentLoaded
 
 
@@ -246,8 +200,246 @@ function do_onload() {
     send_command("get_terminal_config", 0, 0);
     setInterval(do_update, 1000);
     send_command("get_full_config", 0, 0);
-    send_command("get_ws_instances", 0, 0);
 }
+
+function find_parent(ele, tagname) {
+    while (ele) {
+        if (ele.nodeName == tagname)
+            return (ele);
+        else if (ele.nodeName == "HTML")
+            return null;
+        ele = ele.parentNode;
+    }
+    return null;
+}
+
+/* ===== Color profile storage/apply ===== */
+const COLOR_STORE_KEY = 'ui_color_profile_v1';
+const DEFAULT_COLORS = {
+  uiAccent: '#00ffff',
+  values:   '#00ffff',
+  headerBg: '#1e1e1e',
+  headerFg: '#e6e6e6',
+  cardBg:   '#151515',
+  cardFg:   '#dcdcdc',
+  bandingColor: '#202020',
+  tgGlowStrength: 10,
+  tgGlowStyle: 'outline',
+  // default opacity for cards (1 = fully opaque)
+  cardOpacity: 1
+};
+
+function loadColorProfile(){
+  try { return JSON.parse(localStorage.getItem(COLOR_STORE_KEY)) || {...DEFAULT_COLORS}; }
+  catch { return {...DEFAULT_COLORS}; }
+}
+function saveColorProfile(p){ try { localStorage.setItem(COLOR_STORE_KEY, JSON.stringify(p)); } catch(_){} }
+
+function applyColorProfile(p){
+  const r = document.documentElement.style;
+  r.setProperty('--accent', p.uiAccent);
+  r.setProperty('--values', p.values || p.uiAccent);
+  r.setProperty('--header-bg', p.headerBg);
+  r.setProperty('--header-fg', p.headerFg);
+  r.setProperty('--card-bg', p.cardBg);
+  r.setProperty('--card-fg', p.cardFg);
+  r.setProperty('--row-banding', p.bandingColor);
+  r.setProperty('--tg-glow-px', `${p.tgGlowStrength || 10}px`);
+
+  // Apply card opacity (bounded between 0.1 and 1)
+  const op = Math.max(0.1, Math.min(1, p.cardOpacity !== undefined ? p.cardOpacity : 1));
+  r.setProperty('--card-bg-alpha', op);
+
+  const rgb = hexToRgb(p.cardBg);
+  if (rgb) r.setProperty('--card-bg-rgb', rgb.join(', '));
+  r.setProperty('--card-bg-alpha', p.cardOpacity !== undefined ? p.cardOpacity : 1);
+
+  // Update glow data-attr on highlighted elements
+  document.querySelectorAll('.tg-row, #currentTgChip').forEach(el=>{
+    el.setAttribute('data-glow', p.tgGlowStyle || 'outline');
+  });
+}
+
+function setAndSaveColor(key, value){
+  const prof = loadColorProfile();
+  prof[key] = value;
+  saveColorProfile(prof);
+  applyColorProfile(prof);
+}
+
+/* ===== Hook up the new controls ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const prof = loadColorProfile();
+  // Seed inputs (if present)
+  const byId = id => document.getElementById(id);
+  const uiAccent = byId('uiAccent');
+  const headerBg = byId('headerBg');
+  const headerFg = byId('headerFg');
+  const cardBg   = byId('cardBg');
+  const cardFg   = byId('cardFg');
+  const banding  = byId('bandingColor');
+  const glowStr  = byId('tgGlowStrength');
+  const glowStrV = byId('tgGlowStrengthValue');
+  const glowSty  = byId('tgGlowStyle');
+  const cardOpacity = byId('cardOpacityControl');
+  const cardOpacityVal = byId('cardOpacityValue');
+
+  if (uiAccent) uiAccent.value = prof.uiAccent;
+  if (headerBg) headerBg.value = prof.headerBg;
+  if (headerFg) headerFg.value = prof.headerFg;
+  if (cardBg)   cardBg.value   = prof.cardBg;
+  if (cardFg)   cardFg.value   = prof.cardFg;
+  if (banding)  banding.value  = prof.bandingColor;
+  if (glowStr){ glowStr.value = prof.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(prof.tgGlowStrength); }
+  if (glowSty)  glowSty.value  = prof.tgGlowStyle;
+  if (cardOpacity) {
+    cardOpacity.value = (prof.cardOpacity !== undefined ? prof.cardOpacity : 1);
+    if (cardOpacityVal) cardOpacityVal.textContent = String(prof.cardOpacity !== undefined ? prof.cardOpacity : 1);
+  }
+
+  // Apply immediately
+  applyColorProfile(prof);
+
+  // Listeners
+  uiAccent && uiAccent.addEventListener('input', e => setAndSaveColor('uiAccent', e.target.value));
+  headerBg && headerBg.addEventListener('input', e => setAndSaveColor('headerBg', e.target.value));
+  headerFg && headerFg.addEventListener('input', e => setAndSaveColor('headerFg', e.target.value));
+  cardBg   && cardBg  .addEventListener('input', e => setAndSaveColor('cardBg', e.target.value));
+  cardFg   && cardFg  .addEventListener('input', e => setAndSaveColor('cardFg', e.target.value));
+  banding  && banding .addEventListener('input', e => setAndSaveColor('bandingColor', e.target.value));
+  glowStr  && glowStr .addEventListener('input', e => {
+    if (glowStrV) glowStrV.textContent = e.target.value;
+    setAndSaveColor('tgGlowStrength', Number(e.target.value));
+  });
+  glowSty  && glowSty .addEventListener('change', e => setAndSaveColor('tgGlowStyle', e.target.value));
+  cardOpacity && cardOpacity.addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    if (cardOpacityVal) cardOpacityVal.textContent = String(val);
+    setAndSaveColor('cardOpacity', val);
+  });
+
+  // Export / Import / Reset
+  const exportBtn = byId('exportColorsBtn');
+  const importBtn = byId('importColorsBtn');
+  const importInp = byId('importColorsInput');
+  const resetBtn  = byId('resetColorsBtn');
+
+  exportBtn && exportBtn.addEventListener('click', ()=>{
+    const data = JSON.stringify(loadColorProfile(), null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'op25-color-profile.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 0);
+  });
+
+  importBtn && importBtn.addEventListener('click', ()=> importInp && importInp.click());
+  importInp && importInp.addEventListener('change', ()=>{
+    const f = importInp.files && importInp.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        const merged = {...DEFAULT_COLORS, ...parsed};
+        saveColorProfile(merged);
+        // Re-seed inputs + apply
+        if (uiAccent) uiAccent.value = merged.uiAccent;
+        if (headerBg) headerBg.value = merged.headerBg;
+        if (headerFg) headerFg.value = merged.headerFg;
+        if (cardBg)   cardBg.value   = merged.cardBg;
+        if (cardFg)   cardFg.value   = merged.cardFg;
+        if (banding)  banding.value  = merged.bandingColor;
+        if (glowStr){ glowStr.value  = merged.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(merged.tgGlowStrength); }
+        if (glowSty)  glowSty.value  = merged.tgGlowStyle;
+        if (cardOpacity) {
+          cardOpacity.value = merged.cardOpacity !== undefined ? merged.cardOpacity : 1;
+          if (cardOpacityVal) cardOpacityVal.textContent = String(merged.cardOpacity !== undefined ? merged.cardOpacity : 1);
+        }
+        applyColorProfile(merged);
+      }catch(err){ console.warn('Invalid color profile JSON', err); }
+      importInp.value = '';
+    };
+    reader.readAsText(f);
+  });
+
+  resetBtn && resetBtn.addEventListener('click', ()=>{
+    saveColorProfile({...DEFAULT_COLORS});
+    applyColorProfile({...DEFAULT_COLORS});
+    if (uiAccent) uiAccent.value = DEFAULT_COLORS.uiAccent;
+    if (headerBg) headerBg.value = DEFAULT_COLORS.headerBg;
+    if (headerFg) headerFg.value = DEFAULT_COLORS.headerFg;
+    if (cardBg)   cardBg.value   = DEFAULT_COLORS.cardBg;
+    if (cardFg)   cardFg.value   = DEFAULT_COLORS.cardFg;
+    if (banding)  banding.value  = DEFAULT_COLORS.bandingColor;
+    if (glowStr){ glowStr.value  = DEFAULT_COLORS.tgGlowStrength; if (glowStrV) glowStrV.textContent = String(DEFAULT_COLORS.tgGlowStrength); }
+    if (glowSty)  glowSty.value  = DEFAULT_COLORS.tgGlowStyle;
+    if (cardOpacity) {
+      cardOpacity.value = DEFAULT_COLORS.cardOpacity;
+      if (cardOpacityVal) cardOpacityVal.textContent = String(DEFAULT_COLORS.cardOpacity);
+    }
+  });
+});
+
+/* Make glow respect the current style whenever you add rows / change current TG */
+function applyTgRowHighlight(trEl, tgid){
+  if (!trEl || !tgid) return;
+  trEl.classList.add('tg-row');
+  trEl.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+  const prof = loadColorProfile();
+  trEl.setAttribute('data-glow', prof.tgGlowStyle || 'outline');
+}
+function applyCurrentTgHighlight(tgid){
+  const chip = document.getElementById('currentTgChip');
+  if (!chip) return;
+  chip.style.setProperty('--tg-rgb', getTgRgbString(tgid));
+  const prof = loadColorProfile();
+  chip.setAttribute('data-glow', prof.tgGlowStyle || 'outline');
+}
+
+// this was from Osmocom config editor, not used here.
+
+	// function f_command(ele, command) {
+	//     var myrow = find_parent(ele, "TR");
+	//     if (command == "delete") {
+	//         var ok = confirm ("Confirm delete");
+	//         if (ok)
+	//             myrow.parentNode.removeChild(myrow);
+	//     } else if (command == "clone") {
+	//         var newrow = myrow.cloneNode(true);
+	//         if (myrow.nextSibling)
+	//             myrow.parentNode.insertBefore(newrow, myrow.nextSibling);
+	//         else
+	//             myrow.parentNode.appendChild(newrow);
+	//     } else if (command == "new") {
+	//         var mytbl = find_parent(ele, "TABLE");
+	//         var newrow = null;
+	//         if (mytbl.id == "chtable")
+	//             newrow = document.getElementById("chrow").cloneNode(true);
+	//         else if (mytbl.id == "devtable")
+	//             newrow = document.getElementById("devrow").cloneNode(true);
+	//         else
+	//             return;
+	//         mytbl.appendChild(newrow);
+	//     }
+	// }
+
+// Deprecated
+
+	// function nav_update(command) {
+	// 	var names = ["b1", "b2", "b3"];
+	// 	var bmap = { "status": "b1", "plot": "b2", "about": "b3" };
+	// 	var id = bmap[command];
+	// 	for (var id1 in names) {
+	// 		b = document.getElementById(names[id1]);
+	// 		if (names[id1] == id) {
+	// 			b.className = "nav-button-active";
+	// 		} else {
+	// 			b.className = "nav-button";
+	// 		}
+	// 	}
+	// }
 
 function is_digit(s) {
     if (s >= "0" && s <= "9")
@@ -288,7 +480,7 @@ function rx_update(d) {
 	var plotsCount = d["files"].length;
 	document.getElementById('plotsCount').innerText = plotsCount;
 
-    plotfiles = [];
+    let plotfiles = [];
     
     if ((d["files"] != undefined) && (d["files"].length > 0)) {
         for (var i=0; i < d["files"].length; i++) {
@@ -337,14 +529,18 @@ function rx_update(d) {
 // frequency, system, and talkgroup display
 
 function change_freq(d) {
-
-    c_freq = d['freq'];
-    c_system = d['system'];
-    current_tgid = d['tgid'];
-    c_tag = d['tag'];
-    displayTalkgroup.innerText = c_tag;
-    c_stream_url = d['stream_url'];
-    channel_status();
+  c_freq = d.freq;
+  c_system = d.system;
+  current_tgid = d.tgid;
+  c_tag = d.tag;
+  $('displayTalkgroup').innerText = c_tag || '';
+  applySmartColorToTgidSpan();
+  applyCurrentTgHighlight(current_tgid);
+  c_stream_url = d.stream_url;
+  channel_status();
+  // After changing frequency, update the frequency table highlighting and main info glow
+  highlightActiveFrequencyRows();
+  updateMainInfoGlow();
 }
 
 function channel_update(d) {
@@ -405,6 +601,8 @@ function channel_update(d) {
             capture_active = d[c_id]['capture'];
             hold_tgid = d[c_id]['hold_tgid'];
 
+            applyCurrentTgHighlight(current_tgid);
+
             
         if (hold_tgid != 0) {
             document.getElementById("btn-hold").style.color = "red";
@@ -418,58 +616,75 @@ function channel_update(d) {
             
             c_tdma 							= d[c_id]['tdma'];
             
-            displayChannel.innerText		= c_name;
-            plotChannelDisplay.innerText	= c_name;
-            
-            displaySystem.innerText 		= c_system ? c_system : "-";
-            
-   			displayFreq.innerText 			= (parseInt(c_freq) / 1000000.0).toFixed(6);
-            displayTalkgroup.innerText 		= c_tag ? c_tag : "Talkgroup " + current_tgid;
-            
-            displayTgid.innerText 			= current_tgid ? current_tgid : "-";
-            displaySource.innerText 		= c_srctag ? c_srctag : "ID: " + c_srcaddr;
-            
+            // Update UI fields using helper $() to avoid scope issues
+            $('displayChannel').innerText     = c_name;
+            $('plotChannelDisplay').innerText = c_name;
+            $('displaySystem').innerText      = c_system ? c_system : "-";
+            $('displayFreq').innerText        = (parseInt(c_freq) / 1000000.0).toFixed(6);
+            $('displayTalkgroup').innerText   = c_tag ? c_tag : "Talkgroup " + current_tgid;
+            $('displayTgid').innerText        = current_tgid ? current_tgid : "-";
+            $('displaySource').innerText      = c_srctag ? c_srctag : "ID: " + c_srcaddr;
+
+            // Apply smart colours to the talkgroup display
             applySmartColorToTgidSpan();
-            
-            if ( displaySource.innerText == "ID: 0")
-            	 displaySource.innerText = " ";
-            	 
-            displaySourceId.innerText 	= c_srcaddr ? c_srcaddr : "-";
-            
-			// Encryption			
-			if (!c_encrypted) displayEnc.innerText = "-";
-			
-			if (c_encrypted == 1) {
-			  displayEnc.innerText = "Encrypted";
-			  displayEnc.style.color = "red";
-			  displayTalkgroup.innerHTML += " &nbsp;&nbsp;&nbsp; " + enc_sym;
-			} else {
-			  displayEnc.innerText = "-";
-			  displayEnc.style.color = ""; // fallback to CSS default
-			}
-			
-			if (c_encrypted == 0 && current_tgid != null) {
-			  displayEnc.innerText = "Clear";
-			  displayEnc.style.color = ""; // fallback to CSS default
-			}
-			
-			if (c_encrypted == undefined) displayEnc.innerText = "-";
-			
-			// Emergency
-			if (c_emergency == 1) {
-			  displayEmg.innerText = "EMERGENCY";
-			  displayEmg.style.color = "red";
-			} else {
-			  displayEmg.innerText = "-";
-			  displayEmg.style.color = ""; // fallback to CSS default
-			}
-            
+
+            // Normalize 'ID: 0' to a blank string
+            if ($('displaySource').innerText === "ID: 0") {
+              $('displaySource').innerText = " ";
+            }
+
+            // Always set the numeric source ID; blank if undefined
+            $('displaySourceId').innerText = c_srcaddr ? c_srcaddr : "-";
+
+            console.log("channel_update displaySource debug:", { c_srctag, c_srcaddr, displaySource: $('displaySource').innerText });
+
+            // Encryption indicator
+            const encEl = $('displayEnc');
+            const tgEl  = $('displayTalkgroup');
+            if (!c_encrypted) {
+              encEl.innerText = "-";
+              encEl.style.color = "";
+            }
+            if (c_encrypted === 1) {
+              encEl.innerText = "Encrypted";
+              encEl.style.color = "red";
+              tgEl.innerHTML += " &nbsp;&nbsp;&nbsp; " + enc_sym;
+            } else if (c_encrypted === 0 && current_tgid != null) {
+              encEl.innerText = "Clear";
+              encEl.style.color = "";
+            }
+            if (typeof c_encrypted === 'undefined') {
+              encEl.innerText = "-";
+            }
+
+            // Emergency indicator
+            const emgEl = $('displayEmg');
+            if (c_emergency === 1) {
+              emgEl.innerText = "EMERGENCY";
+              emgEl.style.color = "red";
+            } else {
+              emgEl.innerText = "-";
+              emgEl.style.color = "";
+            }
+
+            // Service display
             if (c_svcopts == 0) c_svcopts = "-";
-            displayService.innerText = c_svcopts;
-			
-			// send voice display to call history table				
-			if (current_tgid)      
-				appendCallHistory(c_system.substring(0, 5), current_tgid, 0, displayTalkgroup.innerText, 0, displayFreq.innerText, displaySource.innerText, "", "display");
+            $('displayService').innerText = c_svcopts;
+
+            // send voice display to call history table
+            if (current_tgid) {
+              appendCallHistory(
+                c_system.substring(0, 5),
+                current_tgid,
+                0,
+                $('displayTalkgroup').innerText,
+                0,
+                $('displayFreq').innerText,
+                $('displaySource').innerText,
+                "",
+                "display"
+              );
+            }
         }
         else {
 
@@ -485,10 +700,12 @@ function channel_update(d) {
             c_emergency = 0;
         }
         channel_status();
-		loadPresets(c_system);
-
-        ws_create(channel_list[channel_index])
+    	loadPresets(c_system);
     }
+  // After updating channels, refresh frequency highlights and main info glow
+  highlightActiveFrequencyRows();
+  updateMainInfoGlow();
+  applySmartColorToTgidSpan();
 }
 
 function channel_table(d) {
@@ -497,7 +714,7 @@ function channel_table(d) {
 	
 	let html = "<table class='compact-table' style='border-collapse: collapse;'>";
 	html += "<tr><th>Ch</th><th>Name</th><th>System</th><th>Frequency</th><th colspan='2' style='width: 140px;'>Talkgroup</th><th>Mode</th><th>Hold</th><th>Capture</th><th>Error</th></tr>";
-	
+
 	for (const ch of d.channels) {
 		const entry = d[ch];
 		if (!entry) continue;
@@ -545,7 +762,7 @@ function channel_table(d) {
 		</tr>`;
 	}
 	
-	html += "</table>";
+	html += "</tbody></table>";
 		
 	channelInfo.innerHTML = html;
 	
@@ -559,18 +776,17 @@ function channel_status() {
 
     var html;
     var s2_cap = document.getElementById("cap_bn");
-    
-    // the speaker icon in the main display and the url in the Settings div
-    var streamButton = document.getElementById("streamButton");
-	var streamURL = document.getElementById("streamURL");
-		
-    html = "";
+    // Always refresh the audio player and UI based on preferred stream URL
+    refreshStreamUI();
 
-	// displays the speaker icon when a stream url is present
-    if (c_stream_url != undefined) {
-        var streamHTML = "<a a href='" + c_stream_url + "' target='_blank'>&#128264;</a>";
-        streamButton.innerHTML = streamHTML;
-        streamURL.innerHTML = streamHTML + " " + c_stream_url    
+    // Set the speaker icon (a clickable link) based on the preferred stream URL.
+    const streamButton = document.getElementById("streamButton");
+    const streamURLEl  = document.getElementById("streamURL");
+    const url = getPreferredStreamUrl();
+
+    if (streamURLEl) {
+      // Display the raw URL text; clickable icon is handled above
+      streamURLEl.textContent = url ? url : "None";
     }
 
 	// TODO: c_ppm is not displayed anywhere in the new UI. What is it?
@@ -584,6 +800,12 @@ function channel_status() {
         document.getElementById('cap_bn').innerText = "Stop Capture";
     else
         document.getElementById('cap_bn').innerText = "Start Capture";   
+
+    // After updating the channel status, refresh the glow on the main info panel
+    // so that it reflects the current encryption and talkgroup state.  This
+    // directly adjusts classes on the main-info cell rather than relying on
+    // mutation observers (which may not catch programmatic changes).
+    updateMainInfoGlow();
 
 }
 
@@ -657,6 +879,7 @@ function patches(d) {
 
 } // end patch table
 
+
 // adjacent sites table
 
 function adjacent_sites(d) {
@@ -682,10 +905,10 @@ function adjacent_sites(d) {
         return;
     }
 
-    var html = "<table class='compact-table'";
+    var html = "<table class='compact-table'>";
     html += "<tr><th colspan=99 class='th-section'>Adjacent Sites</th></tr>";
     if (is_p25) {
-        html += "<tr><th>System</th><th>Site Name<th>RFSS</th><th>Site</th><th>Frequency</th><th>Uplink</th></tr>";
+        html += "<tr><th>System</th><th>Site Name</th><th>RFSS</th><th>Site</th><th>Frequency</th><th>Uplink</th></tr>";
         var ct = 0;
         // Ordered by RFSS then site number
         var adjacent_by_rfss = {};
@@ -742,333 +965,11 @@ function adjacent_sites(d) {
     return html;
 }
 
-function update_sub_reg(r, systemId) {
-
-  // update subscriber registrations table for the selected channel only
-
-  var cb = document.getElementById('trackSubsToggle');
-  var enabled = cb && cb.checked;
-
-  var container = document.getElementById('subContainer');
-  if (!enabled) {
-    if (container) container.style.display = "none";
-    return;
-  }
-  if (container) container.style.display = "";
-
-  var systemIdHex = Number(systemId).toString(16).padStart(3, "0"); // lower hex, we'll compare consistently
-
-  var table = document.getElementById("subscribers");
-  if (!table) return;
-
-  // Clear table (keep header row)
-  while (table.rows.length > 1) table.deleteRow(1);
-
-  // If r includes non-objects, ignore them safely
-  var rows = [];
-  var totalReg = 0;
-
-  var rfss = "";
-  var site = "";
-
-  Object.values(r || {}).forEach(function (obj) {
-
-    if (!obj || typeof obj !== "object") return;
-
-    var suid = String(obj.suid || "");
-    if (!suid || suid.length < 8) return;
-
-    var wacn = suid.substring(0, 5).toUpperCase();
-    var sysid = suid.substring(5, 8).toUpperCase();
-
-    // filter to selected system only
-    if (sysid !== systemIdHex.toUpperCase()) return;
-
-    // capture rfss/site for header
-    rfss = (obj.rfss != null ? obj.rfss : rfss);
-    site = (obj.site != null ? obj.site : site);
-
-    var srcaddr = obj.srcaddr;
-    if (srcaddr === 0 || srcaddr === "0") return;
-
-    var aff_ga = obj.aff_ga;
-    if (aff_ga === 0 || aff_ga === "0") return;
-
-    var t = Number(obj.time || 0);
-
-    // time string
-    var dt = new Date(t * 1000);
-    var timeStr = dt.toLocaleTimeString([], {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-
-    // display fields
-    var srctag = (obj.tag != null && obj.tag !== "") ? obj.tag : ('ID: ' + srcaddr);
-    var srctg = (obj.aff_ga_tag != null && obj.aff_ga_tag !== "") ? obj.aff_ga_tag : ('Talkgroup ' + aff_ga);
-
-    var affAgaRaw = obj.aff_aga;
-    var affAgaTag = (obj.aff_aga_tag != null && obj.aff_aga_tag !== "") ? obj.aff_aga_tag : "";
-    var affAgaDisp = (Number(affAgaRaw) === 0) ? "-" : (String(affAgaRaw) + (affAgaTag ? (" " + affAgaTag) : ""));
-
-    totalReg++;
-
-    rows.push({
-      // sort keys
-      time: t,
-      system: wacn + "-" + sysid + "-" + String(rfss) + "-" + String(site),
-      tgid: aff_ga,
-      tgtag: srctg,
-      id: srcaddr,
-      ag: (affAgaRaw == null ? 0 : affAgaRaw),
-
-      // display strings
-      timeStr: timeStr,
-      systemStr: wacn + ' . ' + sysid + ' . ' + rfss + ' . ' + site,
-      tgidStr: String(aff_ga),
-      tgtagStr: srctg,
-      idStr: srctag,
-      agStr: affAgaDisp
-    });
-  });
-
-  // counts
-  var subCountEl = document.getElementById('subCount');
-  if (subCountEl) subCountEl.innerText = totalReg;
-
-  var sysCountEl = document.getElementById('sysCount');
-  if (sysCountEl) {
-    var sysLine = ' on System ' + systemIdHex.toUpperCase();
-    if (rfss !== "" && site !== "") sysLine += ' . ' + rfss + ' . ' + site;
-    sysCountEl.innerText = sysLine;
-  }
-
-  // optional sort (only if user clicked a header)
-  if (subSortKey) {
-    rows.sort(function (a, b) {
-      return subSortDir * cmp(a[subSortKey], b[subSortKey]);
-    });
-  }
-
-  // render
-  rows.forEach(function (r) {
-    var row = table.insertRow(-1);
-
-    row.insertCell(0).textContent = r.timeStr;
-    row.insertCell(1).textContent = r.systemStr;
-    row.insertCell(2).textContent = r.tgidStr;
-
-    var c3 = row.insertCell(3);
-    c3.textContent = r.tgtagStr;
-    c3.style.textAlign = "left";
-
-    row.insertCell(4).textContent = r.idStr;
-
-    var c5 = row.insertCell(5);
-    c5.textContent = r.agStr;
-    c5.style.textAlign = "left";
-  });
-
-  // update ▲▼ indicators after rebuild
-  updateSubSortHeaderIndicators();
-
-  applySmartColorsSubReg();
-  filterSubscribers();
-}
-
-function update_sub_reg_all(d) {
-
-  // update subscriber registrations table for all channels
-
-  var cb = document.getElementById('trackSubsToggle');
-  var enabled = cb && cb.checked;
-  var el = document.getElementById('subContainer');
-
-  if (!enabled) {
-    if (el) el.style.display = "none";
-    return;
-  }
-
-  if (el) el.style.display = "";
-
-  var totalReg = 0;
-  var totalSys = 0;
-
-  var table = document.getElementById("subscribers");
-  if (!table) return;
-
-  // clear old rows (keep header row)
-  while (table.rows.length > 1) table.deleteRow(1);
-
-  // ---- collect rows first (so we can sort) ----
-  var rows = [];
-
-  Object.values(d || {}).forEach(function (s) {
-
-    // s can be a string/number (json_type, nac, etc). Skip those.
-    if (!s || typeof s !== 'object' || !s.wuid_data || typeof s.wuid_data !== 'object') return;
-
-    totalSys++;
-
-    Object.values(s.wuid_data).forEach(function (obj) {
-
-      if (!obj || typeof obj !== 'object') return;
-
-      var suid = String(obj.suid || "");
-      if (!suid || suid.length < 8) return;
-
-      var srcaddr = obj.srcaddr;
-      if (srcaddr === 0 || srcaddr === "0") return; // server sometimes sends 0
-
-      var aff_ga = obj.aff_ga;
-      if (aff_ga === 0 || aff_ga === "0") return;   // server sometimes sends tg 0
-
-      var t = Number(obj.time || 0);
-
-      var wacn  = suid.substring(0, 5).toUpperCase();
-      var sysid = suid.substring(5, 8).toUpperCase();
-
-      // epoch → 24h time
-      var dt = new Date(t * 1000);
-      var timeStr = dt.toLocaleTimeString([], {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-
-      // tags
-      var srctg = (obj.aff_ga_tag != null && obj.aff_ga_tag !== "")
-        ? obj.aff_ga_tag
-        : ('Talkgroup ' + aff_ga);
-
-      var affAgaRaw = obj.aff_aga;
-      var affAgaTag = (obj.aff_aga_tag != null && obj.aff_aga_tag !== "") ? obj.aff_aga_tag : "";
-      var affAgaDisp = (Number(affAgaRaw) === 0) ? "-" : (String(affAgaRaw) + (affAgaTag ? (" " + affAgaTag) : ""));
-
-      totalReg++;
-
-      rows.push({
-        // sort keys
-        time: t,
-        system: wacn + "-" + sysid,
-        tgid: aff_ga,
-        tgtag: srctg,
-        id: srcaddr,
-        ag: (affAgaRaw == null ? 0 : affAgaRaw),
-
-        // display values
-        timeStr: timeStr,
-        systemStr: wacn + "-" + sysid,
-        tgidStr: String(aff_ga),
-        tgtagStr: srctg,
-        idStr: 'ID: ' + srcaddr,
-        agStr: affAgaDisp
-      });
-    });
-  });
-
-  // ---- optional sort (only if user clicked a header) ----
-  if (subSortKey) {
-    rows.sort(function(a, b) {
-      var av = a[subSortKey];
-      var bv = b[subSortKey];
-      return subSortDir * cmp(av, bv);
-    });
-  }
-
-  // ---- render ----
-  rows.forEach(function(r) {
-    var row = table.insertRow(-1);
-
-    row.insertCell(0).textContent = r.timeStr;
-    row.insertCell(1).textContent = r.systemStr;
-    row.insertCell(2).textContent = r.tgidStr;
-    row.insertCell(3).textContent = r.tgtagStr;
-    row.insertCell(4).textContent = r.idStr;
-    row.insertCell(5).textContent = r.agStr;
-
-    // align left for cols 3 and 5 (like you wanted previously)
-    row.cells[3].style.textAlign = "left";
-    row.cells[5].style.textAlign = "left";
-  });
-
-  // counts
-  var subCount = document.getElementById('subCount');
-  if (subCount) subCount.innerText = totalReg;
-
-  var sysCount = document.getElementById('sysCount');
-  if (sysCount) {
-    var label = totalSys === 1 ? 'System' : 'Systems';
-    sysCount.innerText = ' on ' + totalSys + ' ' + label;
-  }
-
-  // keep header arrows correct after rebuild
-  updateSubSortHeaderIndicators();
-
-  applySmartColorsSubReg();
-  filterSubscribers();
-}
-
-function cleanStr(v) {
-  return (v == null) ? "" : String(v).trim();
-}
-
-function hasValue(v) {
-  return cleanStr(v).length > 0;
-}
-
-function sysHex3(sysid) {
-  // sysid may arrive as number or string
-  var n = Number(sysid);
-  if (!Number.isFinite(n)) return cleanStr(sysid).toUpperCase(); // fallback
-  return n.toString(16).toUpperCase().padStart(3, "0");
-}
-
-function rememberTag(sysidHex, tgid, tagFromServer) {
-
-  if (!hasValue(sysidHex) || !hasValue(tgid)) return;
-
-  var sys = String(sysidHex).toUpperCase();
-  var tg  = String(tgid);
-
-  if (!TG_TAG_CACHE[sys]) TG_TAG_CACHE[sys] = {};
-  if (!TG_TAG_CACHE[sys][tg] || typeof TG_TAG_CACHE[sys][tg] !== "object") {
-    TG_TAG_CACHE[sys][tg] = { tag: "", hits: 0 };
-  }
-
-  // always count the hit
-  TG_TAG_CACHE[sys][tg].hits++;
-
-  // only store tag if it came from server and is non-empty AND not a placeholder
-  if (hasValue(tagFromServer) && typeof tagFromServer === "string") {
-    var t = cleanStr(tagFromServer);
-    if (t && !/^Talkgroup\s+\d+$/i.test(t)) {
-      TG_TAG_CACHE[sys][tg].tag = t; // override placeholder/blank with real tag
-    }
-  }
-}
-
-function bestTag(sysidHex, tgid, tagFromServer, fallback) {
-  // Prefer server tag if it’s a real string
-  var serverTag = tagToString(tagFromServer);
-  if (serverTag) return serverTag;
-
-  // Next: cache (if you have it)
-  var cached = (TG_TAG_CACHE && TG_TAG_CACHE[sysidHex]) ? TG_TAG_CACHE[sysidHex][String(tgid)] : "";
-  cached = tagToString(cached);
-  if (cached) return cached;
-
-  // Finally: fallback (string)
-  return tagToString(fallback);
-}
-
 // additional system info: wacn, sysID, rfss, site id, secondary control channels, freq error
 
 function trunk_update(d) {
 
+		
     var do_hex = {"syid":0, "sysid":0, "wacn": 0};
     var do_float = {"rxchan":0, "txchan":0};
     var srcaddr = 0;
@@ -1077,12 +978,6 @@ function trunk_update(d) {
 
     if (d['nac'] != undefined)
         c_nac = d['nac']
-
-	var subMode = document.getElementById("subMode").value;
-	// "all" or "selected"
-
-	if (subMode === "all")
-		update_sub_reg_all(d);
 
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
@@ -1103,10 +998,6 @@ function trunk_update(d) {
         else if (nac != c_nac) {
             continue;
         }
-        
-		if (subMode === "selected")
-			update_sub_reg(d[nac]['wuid_data'],d[nac]['sysid']);      
-
 
         var is_p25 = (d[nac]['type'] == 'p25');
         var is_smartnet = (d[nac]['type'] == 'smartnet');
@@ -1218,7 +1109,7 @@ function trunk_update(d) {
         html += "<col span=\"1\" style=\"width:15%;\">";
         html += "<col span=\"1\" style=\"width:12.5%;\">";
         html += "</colgroup>";
-        html += "<tr><th>Frequency</th><th>Last</th><th colspan=2>Active Talkgroup ID</th><th>Mode</th><th>Voice Count</th></tr>";
+        html += "<tr><th>Frequency</th><th>Last</th><th colspan=2>Active Talkgoup&nbspID</th><th>Mode</th><th>Voice Count</th></tr>";
         
         var radioIdFreqTable = document.getElementById('radioIdFreqTable').checked;
                 
@@ -1229,48 +1120,14 @@ function trunk_update(d) {
             tg1 = d[nac]['frequency_data'][freq]['tgids'][0];
             tg2 = d[nac]['frequency_data'][freq]['tgids'][1];
             
-            
-        
-// 			
-// 			let tag1 = (tg1 != null && tg1 !== "")
-// 			  ? (d[nac]?.frequency_data?.[freq]?.tags?.[0] || `Talkgroup[0] ${tg1}`)
-// 			  : " ";
-// 			
-// 			let tag2 = (tg2 != null && tg2 !== "")
-// 			  ? (d[nac]?.frequency_data?.[freq]?.tags?.[1] || `Talkgroup[1] ${tg2}`)
-// 			  : " ";
-
-
-			// new method remembers previously seen TG tags and uses those if a tgid shows up without its tag
-			var sysidHex = sysHex3(d[nac]?.sysid);
+		
+			let tag1 = (tg1 != null && tg1 !== "")
+			  ? (d[nac]?.frequency_data?.[freq]?.tags?.[0] || `Talkgroup ${tg1}`)
+			  : " ";
 			
-			var tg1TagFromServer = d[nac]?.frequency_data?.[freq]?.tags?.[0];
-			var tg2TagFromServer = d[nac]?.frequency_data?.[freq]?.tags?.[1];
-			
-			var tag1 = hasValue(tg1)
-			  ? bestTag(sysidHex, tg1, tg1TagFromServer, `Talkgroup ${tg1}`)
-			  : "";
-			
-			var tag2 = hasValue(tg2)
-			  ? bestTag(sysidHex, tg2, tg2TagFromServer, "Talkgroup " + tg2)
-			  : "";
-			
-			if (tag1 === "" && tg1TagFromServer && typeof tg1TagFromServer === "object") {
-			  console.warn("tg1TagFromServer was object; ignored:", tg1TagFromServer);
-			}
-
-
-			if (tag2 === "" && tg2TagFromServer && typeof tg2TagFromServer === "object") {
-			  console.warn("tg2TagFromServer was object; ignored:", tg2TagFromServer);
-			}
-
-if (hasValue(tg1)) {
-  rememberTag(sysidHex, tg1, tg1TagFromServer);
-}
-
-if (hasValue(tg2)) {
-  rememberTag(sysidHex, tg2, tg2TagFromServer);
-}
+			let tag2 = (tg2 != null && tg2 !== "")
+			  ? (d[nac]?.frequency_data?.[freq]?.tags?.[1] || `Talkgroup ${tg2}`)
+			  : " ";
 
             let src1 = d[nac]['frequency_data'][freq]['srcaddrs'][0];
             let src2 = d[nac]['frequency_data'][freq]['srcaddrs'][1];
@@ -1278,38 +1135,21 @@ if (hasValue(tg2)) {
             let srctag1 = d[nac]['frequency_data'][freq]['srctags'][0];
 			let srctag2 = d[nac]['frequency_data'][freq]['srctags'][1];
 			
-
-// 			let source1 = (srctag1 != null && srctag1 !== "")
-// 				? srctag1
-// 				: (src1 != null && src1 !== "" && src1 !== 0)
-// 					? `ID: ${src1}`
-// 					: null;
-// 			
-// 			let source2 = (srctag2 != null && srctag2 !== "")
-// 				? srctag2
-// 				: (src2 != null && src2 !== "" && src2 !== 0)
-// 					? `ID: ${src2}`
-// 					: null;
-
-			let source1 =
-			  (srctag1 != null && String(srctag1).trim() !== "")
+			
+			let source1 = (srctag1 != null && srctag1 !== "")
 				? srctag1
-				: (src1 != null && String(src1).trim() !== "" && Number(src1) !== 0)
+				: (src1 != null && src1 !== "" && src1 !== 0)
 					? `ID: ${src1}`
-					: "-";
+					: null;
 			
-			let source2 =
-			  (srctag2 != null && String(srctag2).trim() !== "")
+			let source2 = (srctag2 != null && srctag2 !== "")
 				? srctag2
-				: (src2 != null && String(src2).trim() !== "" && Number(src2) !== 0)
+				: (src2 != null && src2 !== "" && src2 !== 0)
 					? `ID: ${src2}`
-					: `ID: ${src1}` 	// there may be a bug python side that causes the ID for srctag[1] to show up in [0] when
-								    	// a tgtag is not present python side.
-			
-			
-			
-			
-			
+					: null;
+
+      console.log("trunk_update source1/source2 debug:", { src1, srctag1, source1, src2, srctag2, source2 });
+      
 			dispSrc1 = (source1 == null) ? "-" : source1;
 			dispSrc2 = (source2 == null) ? "-" : source2;
 			
@@ -1376,9 +1216,9 @@ if (hasValue(tg2)) {
                         achMode = "TDMA";
 					}                    
                     if (tg1 == null)
-                        tg1 = " - ";
+                        tg1 = "&nbsp&nbsp-&nbsp&nbsp";
                     if (tg2 == null)
-                        tg2 = " - ";
+                        tg2 = "&nbsp&nbsp-&nbsp&nbsp";
                     //tg_str = "<td style=\"text-align:center;white-space: nowrap;\">" + tg1 + " &nbsp; " + tag1.substring(0, MAX_TG_CHARS) + contentId1 + "<td style=\"text-align:center;white-space: nowrap;\">" + tg2 + " &nbsp; " + tag2.substring(0, MAX_TG_CHARS) + contentId2;
                     tg_str = "<td style=\"text-align:center;white-space: nowrap;\">" + tag1.substring(0, MAX_TG_CHARS) + contentId1 + "<td style=\"text-align:center;white-space: nowrap;\">" + tag2.substring(0, MAX_TG_CHARS) + contentId2;
                 }
@@ -1386,11 +1226,17 @@ if (hasValue(tg2)) {
 
 			// Append Call History
         	if (d[nac]['sysid'] !== undefined && (tg1 !== undefined || tg2 !== undefined)) {
-
 				appendCallHistory(d[nac]['sysid'], tg1, tg2, tag1, tag2, (parseInt(freq) / 1000000.0).toFixed(6), source1, source2, "frequency");
 			}          
 
-            html += "<tr>";
+            // Insert data-tgids attribute on each frequency row.  This allows
+            // highlightActiveFrequencyRows() to identify which rows belong to
+            // the currently active talkgroup.  The attribute contains a
+            // comma-separated list of TGIDs for the row.
+            var tgAttr = '';
+            if (tg1 != null && tg1 !== "") tgAttr += String(tg1);
+            if (tg2 != null && tg2 !== "" && tg2 !== tg1) tgAttr += (tgAttr ? "," : "") + String(tg2);
+            html += "<tr" + (tgAttr ? " data-tgids='" + tgAttr + "'" : "") + ">";
             html += "<td class='freqData'>" + (parseInt(freq) / 1000000.0).toFixed(6) + "</td>";
 
             html += "<td style=\"text-align:center;\">" + last_activity + "</td>";
@@ -1402,7 +1248,12 @@ if (hasValue(tg2)) {
         
         html += "</table></div>";
 
-		document.getElementById("frequenciesTable").innerHTML = html; 
+        document.getElementById("frequenciesTable").innerHTML = html; 
+
+        // Highlight active frequency rows based on the current talkgroup
+        highlightActiveFrequencyRows();
+        // Update the main info glow (idle/clear/encrypted) after content changes
+        updateMainInfoGlow();
 		
 		
 		if (radioIdFreqTable) {
@@ -1415,11 +1266,16 @@ if (hasValue(tg2)) {
 			});
 		}
 
+
+
 		// finish up
 		
-		applySmartColorsToFrequencyTable();		
+		applySmartColorsToFrequencyTable();
+		
         patches(d[nac]);
+        
         adjacent_sites(d[nac]);
+        
         
     }
 
@@ -1436,6 +1292,80 @@ if (hasValue(tg2)) {
     channel_status();
     
 }  // end trunk_update() - system freqencies table
+
+// ===== Talkgroup Glow State (idle / clear / encrypted) =====
+(function () {
+  //- for inner table only ->// const target = document.querySelector('#main-display .inner-table');
+  const target = document.querySelector('#main-display td.main-info');
+  if (!target) return;
+
+  // ensure the area picks up the nice text glow too
+  target.classList.add('current-tg');
+
+  function setTGState(state) {
+    target.classList.remove('tg-idle', 'tg-clear', 'tg-encrypted');
+    if (state === 'idle')       target.classList.add('tg-idle');
+    else if (state === 'clear') target.classList.add('tg-clear');
+    else if (state === 'encrypted') target.classList.add('tg-encrypted');
+  }
+
+  // Read the current UI text and infer state
+  function computeStateFromDom() {
+    const encEl  = document.getElementById('displayEnc');
+    const tgEl   = document.getElementById('displayTalkgroup');
+    const tgidEl = document.getElementById('displayTgid');
+
+    const encTxt  = (encEl?.textContent || '').trim().toLowerCase();
+    const tgTxt   = (tgEl?.textContent || '').trim();
+    const tgidTxt = (tgidEl?.textContent || '').trim();
+
+    const isEncrypted =
+      ['y', 'yes', 'enc', 'encrypted', 'e', '1'].includes(encTxt);
+
+    const hasActiveTG =
+      (tgTxt.length > 1 && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') &&
+      (tgidTxt !== '' && tgidTxt !== '0' && tgidTxt !== '----' && !isNaN(Number(tgidTxt)));
+
+    if (isEncrypted) setTGState('encrypted');
+    else if (hasActiveTG) setTGState('clear');
+    else setTGState('idle');
+  }
+
+
+  // Observe changes to those fields so the glow follows live updates
+  const encEl  = document.getElementById('displayEnc');
+  const tgEl   = document.getElementById('displayTalkgroup');
+  const tgidEl = document.getElementById('displayTgid');
+
+  const obs = new MutationObserver(computeStateFromDom);
+  [encEl, tgEl, tgidEl].forEach(el => {
+    if (el) obs.observe(el, { childList: true, subtree: true, characterData: true });
+  });
+
+  // Run once at startup and also after each general UI refresh (if do_onload exists)
+  computeStateFromDom();
+  window.addEventListener('DOMContentLoaded', computeStateFromDom);
+})();
+
+function setTGState(state) {
+  const tgBox = document.getElementById("curr-tg");
+  if (!tgBox) return;
+
+  tgBox.classList.remove("tg-idle", "tg-clear", "tg-encrypted");
+
+  switch (state) {
+    case "idle":
+      tgBox.classList.add("tg-idle");
+      break;
+    case "clear":
+      tgBox.classList.add("tg-clear");
+      break;
+    case "encrypted":
+      tgBox.classList.add("tg-encrypted");
+      break;
+  }
+}
+
 
 function plot(d) {
     //TODO: implement local plot rendering using json data
@@ -1478,7 +1408,7 @@ function call_log(d) {
 			const rtag = log.rtag;
 			const rcvr = log.rcvr;
 			const prio = log.prio;
-			const rcvrtag = log.rcvrtag.substring(0, 10) || "";
+			const rcvrtag = (log.rcvrtag || "").substring(0, 10);
 			const freq = (log.freq / 1000000.0).toFixed(6);
 			  var slot = log.slot;
 				
@@ -1502,7 +1432,7 @@ function call_log(d) {
 				<td style="text-align: left;">${displayTtag}</td>
 				<td style="text-align: left;">${displayRtag}</td>
 			`;
-			
+			applyTgRowHighlight(newRow, tgid);
 			tableBody.insertBefore(newRow, tableBody.firstChild);
 			
 		});
@@ -1523,6 +1453,8 @@ function call_log(d) {
 }  // end call_log
 
 function handle_response(dl) {
+
+	// formerly known as function http_req_cb()
 	
     const dispatch = {
         call_log: call_log,
@@ -1532,8 +1464,7 @@ function handle_response(dl) {
         rx_update: rx_update,
         terminal_config: term_config,
         plot: plot,
-        full_config: full_config,
-        ws_instances: ws_instances
+        full_config: full_config
     };
 
     for (let i = 0; i < dl.length; i++) {
@@ -1578,6 +1509,7 @@ function send_command(command, arg1 = 0, arg2 = 0) {
     send_process();
 }
 
+
 async function send_process() {
     const cmd = JSON.stringify(send_queue);
     send_queue = [];  // Clear the queue immediately
@@ -1610,7 +1542,6 @@ async function send_process() {
         try {
             handle_response(dl);
         } catch (err) {
-        	console.error("err: " + err);
             console.error("Error inside handle_response():", err.stack || err);
         }
 
@@ -1621,6 +1552,44 @@ async function send_process() {
         console.error("Fetch Exception Details:", error.stack || error);
     }
 }
+
+// function send_process() {
+// 
+//     const cmd = JSON.stringify(send_queue);
+//     send_queue = [];
+//     
+//     const wbox = document.getElementById('warning-box');
+//     const wtxt = document.getElementById('warning-text');
+// 
+//     fetch("/", {
+//         method: "POST",
+//         headers: {
+//             "Content-Type": "application/json"
+//         },
+//         body: cmd
+//     })
+//     .then(response => {
+//         if (!response.ok) {
+// 			http_errors += 1;
+//             wbox.style.display = "flex";
+//             wtxt.innerText = "HTTP Error: ", response.status;
+//             return;
+//         }
+//         http_ok += 1;
+//         return response.json();
+//     })
+//     .then(dl => {
+//         if (!dl) return;
+//         wbox.style.display = "none";
+//         handle_response(dl);
+//     })
+//     .catch(error => {
+// 			fetch_errors += 1;
+//             wbox.style.display = "flex";
+//             wtxt.innerText = "Error: " + error + "\n" + "Stack:"  + error.stack + "\n" + "Error Message: " + error.message;
+// //             console.warn(error);
+//     });
+// }
 
 function f_chan_button(command) {
     channel_index += command;
@@ -1646,9 +1615,11 @@ function f_cap_button(command) {
     send_command('capture', 0, Number(channel_list[channel_index]));
 }
 
+
 function f_tune_button(command) {
 
 	let step = 0;
+  let _tune = 0;
 	
 	switch (command) {
 	  case "ld": // large down
@@ -1698,7 +1669,7 @@ function f_preset(i) {
 
 	const command = "hold";
 
-	_tgid = preset.tgid;
+	let _tgid = preset.tgid;
 
 	if (isNaN(_tgid) || (_tgid < 0) || (_tgid > 65535))
 		_tgid = 0;
@@ -1781,10 +1752,12 @@ function f_debug() {
 	div_debug.innerHTML = html;
 }
 
+
 function comma(x) {
     // add comma formatting to whatever you give it (xx,xxxx,xxxx)
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
+
 
 function getTime(ts) {
     const date = new Date(ts * 1000); // convert to milliseconds
@@ -1798,361 +1771,269 @@ function extractLastNumber(str) {
     const match = str.match(/(\d+)(?!.*\d)/);
     return match ? parseInt(match[0], 10) : null;
 }
-
-function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource) {
-  // dataSource is one of 'frequency' or 'voice'
-
-  var configuredSourceEl = document.getElementById("callHistorySource");
-  var configuredSource = configuredSourceEl ? configuredSourceEl.value : "";
-  if (dataSource !== configuredSource) return;
-
-  // title the call history table
-  var titleTh = document.getElementById("callHistoryTableTitle");
-  if (titleTh) {
-    if (configuredSource === "display") titleTh.innerText = "Call History - Display";
-    else if (configuredSource === "frequency") titleTh.innerText = "Call History - Frequency Data";
-    else titleTh.innerText = "Call History";
+function saveCallHistoryToLocalStorage() {
+  const tableBody = document.getElementById("callHistoryBody");
+  const rows = Array.from(tableBody.querySelectorAll("tr"));
+  const data = rows.map(row => {
+    return Array.from(row.querySelectorAll("td")).map(cell => cell.innerHTML);
+  });
+  const MAX_HISTORY_ROWS = 200; // or whatever you want
+  if (data.length > MAX_HISTORY_ROWS) {
+    data = data.slice(0, MAX_HISTORY_ROWS);
   }
-
-  var tableBody = document.getElementById("callHistoryBody");
-  if (!tableBody) return;
-
-  var now = new Date();
-  var timestamp = now.toTimeString().split(" ")[0]; // "HH:MM:SS"
-  var epochMs = now.getTime();
-
-  // Normalize sysid -> 3-digit hex
-  var sysHex = Number(sysid).toString(16).toUpperCase().padStart(3, "0");
-
-  // helpers
-  function cleanStr(v) {
-    if (v === undefined || v === null) return "";
-    return String(v).trim();
-  }
-
-  function hasValue(v) {
-    return cleanStr(v).length > 0;
-  }
-
-  function makeKey(tgid, sourceId) {
-    // include freq to avoid TDMA/dual-path collisions across freqs
-    // add slot later if you have it: `${sysHex}|${freq}|${slot}|${tg}|${src}`
-    return sysHex + "|" + cleanStr(freq) + "|" + cleanStr(tgid) + "|" + cleanStr(sourceId);
-  }
-
-  function isDuplicate(tgid, sourceId) {
-    var key = makeKey(tgid, sourceId);
-    var last = callHistorySeen.get(key);
-    if (!last) return false;
-
-    // MAX_HISTORY_SECONDS assumed global; store in ms
-    var ttlMs = (Number(MAX_HISTORY_SECONDS) || 5) * 1000;
-    return (epochMs - last) <= ttlMs;
-  }
-
-  function markSeen(tgid, sourceId) {
-    callHistorySeen.set(makeKey(tgid, sourceId), epochMs);
-
-    // Optional: prevent unbounded growth
-    // If you want, prune occasionally:
-    if (callHistorySeen.size > 5000) {
-      // cheap prune: clear all (or implement better pruning)
-      // callHistorySeen.clear();
-    }
-  }
-
-  function addRow(tgid, tag, sourceId, source) {
-    var tgStr = cleanStr(tgid);
-    var srcStr = cleanStr(sourceId);
-    if (!tgStr || !srcStr) {
-      // don’t append blanks
-      return;
-    }
-
-    var tgName = hasValue(tag) ? cleanStr(tag) : ("Talkgroup " + tgStr);
-
-    var newRow = document.createElement("tr");
-    newRow.innerHTML =
-      "<td>" + timestamp + "</td>" +
-      "<td>" + sysHex + "</td>" +
-      "<td>" + cleanStr(freq) + "</td>" +
-      "<td>" + tgStr + "</td>" +
-      "<td style=\"text-align:left;\">" + tgName + "</td>" +
-      "<td style=\"text-align:left;\">" + srcStr + "</td>";
-
-    tableBody.insertBefore(newRow, tableBody.firstChild);
-
-    // cap rows (assumes MAX_HISTORY_ROWS global)
-    var maxRows = Number(MAX_HISTORY_ROWS) || 200;
-    while (tableBody.rows.length > maxRows) {
-      tableBody.deleteRow(tableBody.rows.length - 1);
-    }
-  }
-
-function processLeg(tg, tag, src, method) {
-
-  if (!hasValue(tg)) {
-//     console.log("processLeg skip: missing tg", {
-//       tg: tg,
-//       tag: tag,
-//       src: src,
-//       method: method
-//     });
-    return;
-  }
-
-  if (!hasValue(src)) {
-//     console.log("processLeg skip: missing src", {
-//       tg: tg,
-//       tag: tag,
-//       src: src,
-//       method: method
-//     });
-    return;
-  }
-
-  // normalize once
-  var tgStr  = cleanStr(tg);
-  var srcStr = cleanStr(src);
-
-  if (isDuplicate(tgStr, srcStr)) {
-//     console.log("processLeg skip: duplicate", {
-//       tg: tgStr,
-//       src: srcStr,
-//       method: method
-//     });
-    return;
-  }
-
-// 
-//   console.log("processLeg addRow", {
-//     tg: tgStr,
-//     tag: tag,
-//     src: srcStr,
-//     method: method
-//   });
-
-  addRow(tgStr, tag, srcStr, method);
-  markSeen(tgStr, srcStr);
+  localStorage.setItem("op25_call_history", JSON.stringify(data));
 }
 
-  // Process both legs (even if equal — you can decide whether to suppress same TG)
-  processLeg(tg1, tag1, sourceId1, "tg1");
-  processLeg(tg2, tag2, sourceId2, "tg2");
-
-
-  applySmartColorsToCallHistory();
-
-  filterCallHistgory();
-
-  // Header label tweak
-  var table = document.getElementById("callHistoryContainer");
-  if (table) {
-    var headerRow = table.querySelector("thead tr");
-    if (headerRow && headerRow.cells.length > 2) {
-      headerRow.cells[2].innerText = "Frequency";
+function restoreCallHistoryFromLocalStorage() {
+  const data = JSON.parse(localStorage.getItem("op25_call_history") || "[]");
+  const tableBody = document.getElementById("callHistoryBody");
+  tableBody.innerHTML = ""; // Clear existing
+  data.forEach(cols => {
+    const row = document.createElement("tr");
+    row.innerHTML = cols.map(cell => `<td>${cell}</td>`).join("");
+    // Re-apply TG highlight (column 3 is TGID)
+    const tgidCell = row.querySelectorAll("td")[3];
+    if (tgidCell) {
+      const tgid = tgidCell.textContent.trim();
+      if (tgid) applyTgRowHighlight(row, tgid);
     }
+    tableBody.appendChild(row);
+  });
+  applySmartColorsToCallHistory();
+}
+
+function appendCallHistory(sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource) {
+
+  console.log("appendCallHistory called with:", {
+      sysid, tg1, tg2, tag1, tag2, freq, sourceId1, sourceId2, dataSource
+  });
+  console.log("appendCallHistory sourceId1/sourceId2:", { sourceId1, sourceId2 });
+	// dataSource is one of 'frequency' or 'voice' 
+
+	// appends the call history table only when the current call is not already there
+	// or is older than 5 seconds.
+	// called by trunk_update()
+
+	const configuredSource = document.getElementById("callHistorySource").value;
+	if (dataSource !== configuredSource) {
+	  return;
+	}
+
+	// title the call history table
+	const titleTh = document.getElementById("callHistoryTableTitle");
+	if (configuredSource === "display") {
+		titleTh.innerText = "Call History - Display";
+	} else if (configuredSource === "frequency") {
+		titleTh.innerText = "Call History - Frequency Data";
+	} 
+
+
+	// populate the table
+    const tableBody = document.getElementById("callHistoryBody");
+    const now = new Date();
+    const timestamp = now.toTimeString().split(' ')[0]; // "HH:MM:SS"
+    const epoch = now.getTime(); // current time in ms
+    const sysHex = sysid.toString(16).toUpperCase().padStart(3, '0');
+    const slot = "S"; // Placeholder for slot
+
+    // Helper to check if a similar row already exists
+		function isDuplicate(tgid, sourceId) {
+			const recentRows = tableBody.querySelectorAll("tr");
+		
+			for (let i = 0; i < Math.min(MAX_HISTORY_ROWS, recentRows.length); i++) {
+				const cells = recentRows[i].querySelectorAll("td");
+				if (cells.length < 6) continue;
+		
+				const rowTime   = cells[0].textContent.trim();
+				const rowSys    = cells[1].textContent.trim();
+				const rowTgid   = cells[3].textContent.trim();
+				const rowSrcId  = cells[5].textContent.trim(); // <-- updated to index 5
+		
+				if (rowSys === sysHex && rowTgid === String(tgid) && rowSrcId === String(sourceId)) {
+					const rowDate = new Date();
+					const [hours, minutes, seconds] = rowTime.split(':').map(Number);
+					rowDate.setHours(hours, minutes, seconds, 0);
+		
+					const rowEpochSec = Math.floor(rowDate.getTime() / 1000);
+					const nowSec = Math.floor(epoch / 1000);
+					const delta = Math.abs(nowSec - rowEpochSec);
+		
+					if (delta <= MAX_HISTORY_SECONDS) {
+            console.log("Duplicate call history row skipped:", { tgid, sourceId, rowTime });
+						return true;
+					}
+				}
+			}
+		
+			return false;
+		}
+
+    // Helper to add a row
+		function addRow(tgid, tag, sourceId) {
+				
+			// Only proceed if tgid is defined and its string length > 2
+			if (tgid === undefined || tgid === null) {
+				console.log("Skipped addRow: tgid undefined or null", { tgid, tag, sourceId });
+				return;
+			}
+			const tgs = String(tgid).trim();
+			if (tgs === "" || tgs === "-") {
+				console.log("Skipped addRow: tgid empty or '-'", { tgid, tag, sourceId });
+				return;
+			}
+
+      console.log("Adding call history row:", { tgid, tag, sourceId });
+		
+			const tgEntry = tag;
+			const tgName = tgEntry;
+		
+			const newRow = document.createElement("tr");
+			
+			// TODO: src
+			newRow.innerHTML = `
+				<td>${timestamp}</td>
+				<td>${sysHex}</td>
+				<td>${freq}</td>
+				<td>${tgid}</td>
+				<td style="text-align: left;">${tgName}</td>
+				<td style="text-align: left;">${sourceId}</td>
+			`;
+      applyTgRowHighlight(newRow, tgid);
+		
+			tableBody.insertBefore(newRow, tableBody.firstChild);
+		}
+
+  // Process single or both entries, don't log entries where source id is not present.
+  if (tg1 !== undefined) {
+      if (!isDuplicate(tg1, sourceId1)) {
+          addRow(tg1, tag1, sourceId1);
+      }
   }
+  if (tg2 !== undefined && tg2 !== tg1) {
+      if (!isDuplicate(tg2, sourceId2)) {
+          addRow(tg2, tag2, sourceId2);
+      }
+  }
+
+	applySmartColorsToCallHistory();
+  saveCallHistoryToLocalStorage();
+	
+	const table = document.getElementById("callHistoryContainer");
+
+	if (table) {
+	  const headerRow = table.querySelector("thead tr");
+	  if (headerRow && headerRow.cells.length > 2) {
+		headerRow.cells[2].innerText = "Frequency";
+	  }
+	}
+} // end appendCallHistory()
+
+function brightenRgb(rgbStr, amount = 30) {
+  // rgbStr: "R, G, B"
+  let rgb = rgbStr.split(',').map(x => parseInt(x.trim(), 10));
+  rgb = rgb.map(v => Math.min(255, v + amount));
+  return rgb.join(', ');
 }
 
 function applySmartColorsToChannels() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-
   const rows = document.querySelectorAll("#channels-container tbody tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
     if (cells.length < 6) return; // make sure column 5 exists
 
-    const talkgroupCell = cells[5];
-    const cellText = talkgroupCell.textContent.toLowerCase();
+    // TGID is column 4, tag is column 5
+    const tgidCell = cells[4];
+    const tagCell = cells[5];
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
 
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        talkgroupCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      talkgroupCell.style.color = "";
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20);
+      // Apply to all cells in the row
+      cells.forEach(cell => {
+        cell.style.color = `rgb(${brightRgb})`;
+      });
+    } else {
+      cells.forEach(cell => {
+        cell.style.color = "";
+      });
     }
   });
 } // end applySmartColorsToChannels
 
-function applySmartColorsSubReg() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-  
-  const rows = document.querySelectorAll("#subscribers tr");
-
-  rows.forEach(row => {
-    const cells = row.querySelectorAll("td");
-    if (cells.length < 5) return;
-
-    const tgidCell = cells[2];
-    const tgTagCell = cells[3];
-    const sourceCell = cells[4];
-    
-
-    const cellText = tgTagCell.textContent.toLowerCase();
-
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        tgidCell.style.color = colorGroup.color;
-        sourceCell.style.color = colorGroup.color;
-        tgTagCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      tgidCell.style.color = "";
-      sourceCell.style.color = "";
-      tgTagCell.style.color = "";
-    }
-  });
-} // end applySmartColorsToSubReg
-
-function applySmartColorsSeenTg() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-  
-  const rows = document.querySelectorAll("#seenTgTable tr");
-
-  rows.forEach(row => {
-    const cells = row.querySelectorAll("td");
-    if (cells.length < 3) return;
-
-    const tgidCell = cells[1];
-    const tgTagCell = cells[2];
-//     const sourceCell = cells[4];
-    
-
-    const cellText = tgTagCell.textContent.toLowerCase();
-
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        tgidCell.style.color = colorGroup.color;
-        tgTagCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      tgidCell.style.color = "";
-      tgTagCell.style.color = "";
-    }
-  });
-} // end applySmartColorsToSubReg
-
 function applySmartColorsToCallHistory() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-  
   const rows = document.querySelectorAll("#callHistoryBody tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
-    if (cells.length < 5) return;
+    if (cells.length < 6) return;
 
+    // Use the TGID from the table (column 3)
     const tgidCell = cells[3];
-    const sourceCell = cells[4];
-    const sourceIdCell = cells[5];
-    
-    const cellText = sourceCell.textContent.toLowerCase();
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
 
-    let matched = false;
-
-    for (const colorGroup of smartColors) {
-      if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-        tgidCell.style.color = colorGroup.color;
-        sourceCell.style.color = colorGroup.color;
-        sourceIdCell.style.color = colorGroup.color;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      tgidCell.style.color = "";
-      sourceCell.style.color = "";
-      sourceIdCell.style.color = "";
+    // Get the RGB string for this TGID (user color or session color)
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20); // adjust amount for brightness
+      // Apply to all cells in the row
+      cells.forEach(cell => {
+        cell.style.color = `rgb(${brightRgb})`;
+      });
+    } else {
+      // Reset color if no TG color
+      cells.forEach(cell => {
+        cell.style.color = "";
+      });
     }
   });
-} // end applySmartColorsToCallHistory
+}
 
 function applySmartColorsToFrequencyTable() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
-
   const rows = document.querySelectorAll("#frequencyTable tr");
 
   rows.forEach(row => {
     const cells = row.querySelectorAll("td");
-    if (cells.length < 3) return;
+    if (cells.length < 4) return;
 
-    const talkgroupCells = [cells[2]];
-    if (cells.length > 3 && cells[3].cellIndex === 3) {
-      talkgroupCells.push(cells[3]);
+    // TGID is in column 3, tag in column 4
+    const tgidCell = cells[2];
+    const tagCell = cells[3];
+    const tgid = tgidCell.textContent.trim();
+    if (!tgid) return;
+
+    const rgb = getTgRgbString(tgid);
+    if (rgb) {
+      const brightRgb = brightenRgb(rgb, 20);
+      tgidCell.style.color = `rgb(${brightRgb})`;
+      tagCell.style.color = `rgb(${brightRgb})`;
+    } else {
+      tgidCell.style.color = "";
+      tagCell.style.color = "";
     }
-
-    talkgroupCells.forEach(cell => {
-      const fullText = cell.textContent;
-      const firstLine = fullText.split('\n')[0].toLowerCase(); // Only first line for matching
-
-      let matched = false;
-
-      // Skip TDMA/FDMA mode cells
-      if (firstLine === "fdma" || firstLine === "tdma") return;
-
-      for (const colorGroup of smartColors) {
-        if (colorGroup.keywords.some(keyword => firstLine.includes(keyword.toLowerCase()))) {
-          cell.style.color = colorGroup.color;
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        cell.style.color = "";
-      }
-    });
   });
 } // end applySmartColorsToFrequencyTable
 
 function applySmartColorToTgidSpan() {
-  if (!document.getElementById("smartColorToggle").checked) return;
-  if (smartColors.length == 0) return;
+  const el = document.getElementById("displayTalkgroup");
+  const source = document.getElementById("displaySource");
+  const tgidEl = document.getElementById("displayTgid");
+  if (!el || !tgidEl) return;
 
-	const el = document.getElementById("displayTalkgroup");
-	if (!el) return;
-	
-	const source = document.getElementById("displaySource");
-
-  const cellText = el.textContent.toLowerCase();
-
-  for (const colorGroup of smartColors) {
-    if (colorGroup.keywords.some(keyword => cellText.includes(keyword.toLowerCase()))) {
-      el.style.color = colorGroup.color;
-      source.style.color = colorGroup.color;
-      return;
-    }
+  const tgid = tgidEl.textContent.trim();
+  const rgb = getTgRgbString(tgid);
+  if (rgb) {
+    const brightRgb = brightenRgb(rgb, 20);
+    el.style.color = `rgb(${brightRgb})`;
+    if (source) source.style.color = `rgb(${brightRgb})`;
+  } else {
+    el.style.color = "";
+    if (source) source.style.color = "";
   }
-
-  el.style.color = "";
-  
-} // end applySmartColorToTgidSpan
+}// end applySmartColorToTgidSpan
 
 function getSiteAlias(sysname, rfss, site) {
     const sysNameUpper = String(sysname).toUpperCase();  // Normalize sysname to uppercase
@@ -2169,6 +2050,88 @@ function getSiteAlias(sysname, rfss, site) {
         return `Site ${site}`;
     }
 }
+
+/* ========= ACTIVE ROW GLOW & MAIN INFO GLOW ========= */
+/**
+ * Highlight rows in the frequency table that correspond to the currently
+ * active talkgroup.  Each <tr> element rendered in the frequency table
+ * should have a data-tgids attribute (comma separated if multiple TGs).
+ * This function removes any previous glow/highlight then reapplies the
+ * appropriate highlight for rows that match the current_tgid.
+ */
+function highlightActiveFrequencyRows() {
+  const rows = document.querySelectorAll('#frequencyTable tr');
+  // Clear previous highlights
+  rows.forEach(row => {
+    row.classList.remove('tg-row');
+    row.removeAttribute('data-glow');
+    row.style.removeProperty('--tg-rgb');
+  });
+  // If no current TGID, nothing further to do
+  if (!current_tgid) return;
+  rows.forEach(row => {
+    const tgidsAttr = row.getAttribute('data-tgids');
+    if (!tgidsAttr) return;
+    const idList = tgidsAttr.split(',').map(s => s.trim()).filter(Boolean);
+    if (idList.includes(String(current_tgid))) {
+      applyTgRowHighlight(row, current_tgid);
+    }
+  });
+}
+
+/**
+ * Update the glow on the main info display area based on current talkgroup
+ * and encryption state.  This mirrors the behaviour of the MutationObserver
+ * defined in the IIFE earlier, but can be called directly after programmatic
+ * updates to the DOM when mutation observers do not fire (e.g. innerHTML
+ * updates).  It reads the contents of displayEnc, displayTalkgroup and
+ * displayTgid and applies tg-idle, tg-clear or tg-encrypted classes to
+ * the main-info cell accordingly.
+ */
+function updateMainInfoGlow() {
+  const target = document.querySelector('#main-display td.main-info');
+  if (!target) return;
+  const encEl  = document.getElementById('displayEnc');
+  const tgEl   = document.getElementById('displayTalkgroup');
+  const tgidEl = document.getElementById('displayTgid');
+  const encTxt  = (encEl?.textContent || '').trim().toLowerCase();
+  const tgTxt   = (tgEl?.textContent || '').trim();
+  const tgidTxt = (tgidEl?.textContent || '').trim();
+  const isEncrypted =
+    encTxt === 'y' || encTxt === 'yes' || encTxt === 'enc' ||
+    encTxt === 'encrypted' || encTxt === 'e' || encTxt === '1';
+  const hasActiveTG =
+    (tgTxt && tgTxt !== '-' && tgTxt.toLowerCase() !== 'waiting for data...') ||
+    (tgidTxt && tgidTxt !== '-' && tgidTxt !== '0' && tgidTxt !== '----');
+  target.classList.remove('tg-idle', 'tg-clear', 'tg-encrypted');
+  if (isEncrypted) {
+    target.classList.add('tg-encrypted');
+  } else if (hasActiveTG) {
+    target.classList.add('tg-clear');
+  } else {
+    target.classList.add('tg-idle');
+  }
+}
+
+
+// function getSiteAlias(sysid, rfss, site) {
+// 
+//	by sysid
+//
+// 	console.log(sysid, rfss, site);
+// 	
+// 	if (site_alias.length == 0) {
+// 		send_command('get_full_config');
+// 	}
+// 	
+// 	try {
+// 		const alias = site_alias?.[sysid]?.[rfss]?.[site]?.alias;
+// 		return alias ?? `Site ${site}`;
+// 	} catch (err) {
+// 		console.warn("Error looking up site alias:", err);
+// 		return `Site ${site}`;
+// 	}
+// }
 
 function toggleDivById(divId, buttonId) {
   const el = document.getElementById(divId);
@@ -2226,6 +2189,7 @@ function handleColumnLayoutChange(e) {
   }
 }
 
+
 function saveSettingsToLocalStorage() {
   localStorage.setItem("callHeight", document.getElementById("callHeightControl").value);
   localStorage.setItem("plotWidth", document.getElementById("plotSizeControl").value);
@@ -2235,10 +2199,9 @@ function saveSettingsToLocalStorage() {
   localStorage.setItem("radioIdFreqTable", document.getElementById("radioIdFreqTable").checked);
   localStorage.setItem("channelsTableToggle", document.getElementById("channelsTableToggle").checked);
   localStorage.setItem("valueColor", document.getElementById("valueColorPicker").value);
-  localStorage.setItem("showBandPlan", document.getElementById("showBandPlan").checked);
-  localStorage.setItem("trackSubsToggle", document.getElementById("trackSubsToggle").checked);
-  localStorage.setItem("subMode", document.getElementById("subMode").value); 
+  localStorage.setItem("showBandPlan", document.getElementById("showBandPlan").checked);  
 }  // end saveSettingsToLocalStorage
+
 
 function loadSettingsFromLocalStorage() {
 	const callHeight = localStorage.getItem("callHeight") || "600";
@@ -2249,27 +2212,17 @@ function loadSettingsFromLocalStorage() {
 	const radioIdFreqTable = localStorage.getItem("radioIdFreqTable");
 	const channelsTableToggle = localStorage.getItem("channelsTableToggle");
 	const showBandPlan = localStorage.getItem("showBandPlan");
-	const trackSubsToggle = localStorage.getItem("trackSubsToggle");
-	const savedSubMode = localStorage.getItem("subMode");
-	
-	if (savedSubMode !== null) {
-		document.getElementById("subMode").value = savedSubMode;
-	}	
-
-	document.getElementById("trackSubsToggle").checked = trackSubsToggle === "true";	
 	
 	document.getElementById("showBandPlan").checked = showBandPlan === "true";	
 	
 	document.getElementById("radioIdFreqTable").checked = radioIdFreqTable === "true";
 	
 	document.getElementById("callHeightControl").value = callHeight;
-	
 	document.querySelector(".call-history-scroll").style.height = `${callHeight}px`;
 	
 	document.getElementById("plotSizeControl").value = plotWidth;
-	
 	document.querySelectorAll(".plot-image").forEach(img => {
-		img.style.width = `${plotWidth}px`;
+	img.style.width = `${plotWidth}px`;
 	});
 	
 	const smartColorEnabled = smartColorsToggle === null ? true : smartColorsToggle === "true";
@@ -2295,9 +2248,8 @@ function loadSettingsFromLocalStorage() {
 	document.getElementById("valueColorPicker").value = valueColor;
 	document.documentElement.style.setProperty('--values', valueColor);  
 
-
-
 } // end loadSettingsFromLocalStorage
+
 
 function showHome() {
   const settings = document.getElementById("settings-container");
@@ -2350,6 +2302,7 @@ async function get_presets_from_config(sysname, retries = 3, delay = 500) {
     console.error("Failed to fetch presets after retries.");
     return null;
 }
+
 
 async function findPresetsForSysname(targetSysname) {
     const configData = await get_presets_from_config(targetSysname);
@@ -2409,50 +2362,6 @@ async function loadPresets(sysname) {
     }
 } // end loadPresets
 
-function ws_instances(instances) {
-	Object.entries(instances).forEach(([key, value]) => {
-        if (key == 'json_type')
-            return; // continue forEach loop
-
-        if (!(key in ws_endpoints) || ((key in ws_endpoints) && (ws_endpoints[key] != value))) {
-            ws_endpoints[key] = value;			// can trigger here if something new shows up
-        }
-    });
-}
-
-function ws_create(channel) {
-
-    if ((ws_endpt != null) && (ws_channel == channel) && (ws_endpt.readyState <= 1))
-        return;                                // we are already on the required channel
-
-    if ((ws_endpt != null) && (ws_endpt.readyState <= 1)) {
-        ws_endpt.close(1000, 'Closing connection normally');
-        return;
-    }
-
-    if ((!(channel in ws_endpoints)) || (ws_endpoints[channel] == null)) {
-        return;
-    }
-
-//
-
-    ws_endpt = new WebSocket(ws_endpoints[channel]);
-    ws_channel = channel;
-    ws_endpt.binaryType = 'arraybuffer';
-    console.log("WebSocket connection opened:", ws_endpt.url);
-
-    ws_endpt.onmessage = function(event) {      // play the received binary audio from here
-        console.log("Message received:", event.data);
-    };
-  
-    ws_endpt.onclose = function(event) {
-        ws_endpt = null;
-    };
-
-    ws_endpt.onerror = function(event) {
-        console.log("WebSocket error:", event);
-    };
-}
 
 function full_config(config) {
 
@@ -2550,21 +2459,18 @@ function full_config(config) {
 
 
 function togglePopup(id, open) {
-  const popup = document.getElementById(id);
-  if (!popup) {
-    console.error(`Popup element with id "${id}" not found.`);
-    return;
-  }
-
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('aria-hidden', open ? 'false' : 'true');
+  el.classList.toggle('show', !!open);
+  // Optional focus management:
   if (open) {
-    popup.style.display = 'flex';
-    setTimeout(() => popup.classList.add('show'), 10); // Smooth fade-in
-  } else {
-    popup.classList.remove('show');
-    popup.style.display = 'none';
+    setTimeout(() => {
+      const f = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (f) f.focus();
+    }, 0);
   }
 }
-
 
 function buildSiteAliases(sa) {
     const siteAliases = {};
@@ -2612,297 +2518,231 @@ function buildSiteAliases(sa) {
     });
 
     return siteAliases;
-} // end buildSiteAliases
-
-
-// Subscriber search 
-
-function openSubSearchModal() {
-
-  var container = document.getElementById("searchSubsPopup");
-  if (!container)  {
-  	return;
-  }
-
-  refreshSubSearchSnapshot();
-
-  container.classList.add("show");
-  container.setAttribute("aria-hidden", "false");
-
-  // focus the search box
-  setTimeout(function () {
-    var input = document.getElementById("subSearchInput");
-    if (input) input.focus();
-  }, 0);
 }
 
-function closeSubSearchModal() {
+/***** TALKGROUP COLORS *****/
 
-  var container = document.getElementById("searchSubsPopup");
-  if (!container) { console.warn('error no container at 2368'); return; }
+const TG_USER_COLORS_KEY = 'tg_user_colors_v1';
+let tgUserColors = {};
+try { tgUserColors = JSON.parse(localStorage.getItem(TG_USER_COLORS_KEY) || '{}'); } catch (_) {}
 
-  container.classList.remove("show");
-  container.setAttribute("aria-hidden", "true");
+const tgSessionColors = Object.create(null); // session-only randoms
+
+// Hash string → [0..360) hue (stable per TG)
+function hashHue(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h % 360;
 }
 
-function clearSubSearch() {
-  var input = document.getElementById("subSearchInput");
-  if (input) input.value = "";
-  filterSubSearchTable();
+// Make a nice pastel HSL, then convert to RGB
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
 }
 
-
-function refreshSubSearchSnapshot() {
-
-  var live = document.getElementById("subscribers");
-  var snap = document.getElementById("subSearchTable");
-  var meta = document.getElementById("subSearchMeta");
-
-  if (!live || !snap) {
-  	console.warn('error no live, no snap in refreshSubSearchSnapshot()');
-  	return;
-  }
-
-  // Clone the current table contents (header + rows)
-  snap.innerHTML = live.innerHTML;
-
-  // Update meta
-  var rowCount = Math.max(0, snap.querySelectorAll("tr").length - 1); // minus header row
-  var now = new Date();
-  var hh = String(now.getHours()).padStart(2, "0");
-  var mm = String(now.getMinutes()).padStart(2, "0");
-  var ss = String(now.getSeconds()).padStart(2, "0");
-
-  if (meta) meta.textContent = "Snapshot: " + hh + ":" + mm + ":" + ss + "  |  Rows: " + rowCount;
-
-  // Apply current filter (if any)
-  filterSubSearchTable();
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
 }
 
-// --- Sub Search (popup) snapshot + sort ---
-
-function refreshSubSearchSnapshot() {
-  var live = document.getElementById("subscribers");
-  var snap = document.getElementById("subSearchTable");
-  var meta = document.getElementById("subSearchMeta");
-
-  if (!live || !snap) {
-    console.warn("error no live, no snap in refreshSubSearchSnapshot()");
-    return;
+// Returns "R, G, B" string for a TGID (prefers user color, else session random)
+function getTgRgbString(tgid) {
+  // user-set hex?
+  const userHex = tgUserColors[tgid];
+  if (userHex) {
+    const rgb = hexToRgb(userHex);
+    if (rgb) return rgb.join(', ');
   }
 
-  // Grab header labels from the live table (first <tr>)
-  var liveHeader = live.querySelector("tr");
-  var headerCells = liveHeader ? liveHeader.querySelectorAll("th") : null;
-
-  // Grab only DATA rows from live table (skip header row)
-  var liveRows = live.querySelectorAll("tr");
-  var html = "";
-
-	html += "<thead><tr>";
-	if (headerCells && headerCells.length) {
-	  for (var h = 0; h < headerCells.length; h++) {
-		var label = (headerCells[h].textContent || "").trim();
-		html += '<th class="th-section" data-ss-col="' + h + '">' + escHtml(label) + "</th>";
-	  }
-	} else {
-	  html += '<th class="th-section" data-ss-col="0">Time</th>' +
-			  '<th class="th-section" data-ss-col="1">System</th>' +
-			  '<th class="th-section" data-ss-col="2">TGID</th>' +
-			  '<th class="th-section" data-ss-col="3">Talkgroup</th>' +
-			  '<th class="th-section" data-ss-col="4">Source</th>' +
-			  '<th class="th-section" data-ss-col="5">AG</th>';
-	}
-	html += "</tr></thead>";
-	
-	// Start TBODY for data rows
-	html += "<tbody>";
-	for (var i = 1; i < liveRows.length; i++) {
-	  html += liveRows[i].outerHTML;
-	}
-	html += "</tbody>";
-
-  // Append the live data rows (skip index 0 header)
-  for (var i = 1; i < liveRows.length; i++) {
-    html += liveRows[i].outerHTML;
+  // session color?  If not previously assigned, pick a truly random hue
+  // rather than a hash-based pastel.  This ensures greater color variety
+  // across talkgroups on every session.  Once a talkgroup is assigned a
+  // random colour in a session, it is stored in tgSessionColors so that
+  // multiple references to the same talkgroup use the same colour.
+  if (!tgSessionColors[tgid]) {
+    // Generate a random hue between 0 and 360 degrees.  Saturation and
+    // lightness values are chosen to produce bright, legible colours.
+    const h = Math.floor(Math.random() * 360);
+    const rgb = hslToRgb(h, 78, 60);
+    tgSessionColors[tgid] = rgb.join(', ');
   }
-
-  snap.innerHTML = html;
-
-  // Wire up popup-only sorting on the new header
-  bindSubSearchSortHandlers();
-
-  // Meta
-  var rowCount = Math.max(0, snap.querySelectorAll("tr").length - 1);
-  var now = new Date();
-  var hh = String(now.getHours()).padStart(2, "0");
-  var mm = String(now.getMinutes()).padStart(2, "0");
-  var ss = String(now.getSeconds()).padStart(2, "0");
-  if (meta) meta.textContent = "Snapshot: " + hh + ":" + mm + ":" + ss + "  |  Rows: " + rowCount;
-
-  // Apply current filter (if any)
-  filterSubSearchTable();
-
-  // Re-apply popup sort if user already selected one
-  if (SUB_SEARCH_SORT.col != null) {
-    sortSubSearchTable(SUB_SEARCH_SORT.col, SUB_SEARCH_SORT.dir, true);
-  }
+  return tgSessionColors[tgid];
 }
 
-function bindSubSearchSortHandlers() {
-  var snap = document.getElementById("subSearchTable");
-  if (!snap) return;
-
-  var ths = snap.querySelectorAll("tr:first-child th[data-ss-col]");
-  for (var i = 0; i < ths.length; i++) {
-    // remove previous handler if we ever rebind
-    ths[i].onclick = null;
-
-    ths[i].style.cursor = "pointer";
-    ths[i].style.userSelect = "none";
-
-    ths[i].addEventListener("click", function (e) {
-      var col = parseInt(this.getAttribute("data-ss-col"), 10);
-      if (isNaN(col)) return;
-
-      // toggle direction if clicking same col
-      if (SUB_SEARCH_SORT.col === col) {
-        SUB_SEARCH_SORT.dir = (SUB_SEARCH_SORT.dir === "asc") ? "desc" : "asc";
-      } else {
-        SUB_SEARCH_SORT.col = col;
-        SUB_SEARCH_SORT.dir = "asc";
-      }
-
-      sortSubSearchTable(SUB_SEARCH_SORT.col, SUB_SEARCH_SORT.dir);
-      updateSubSearchSortIndicators();
-    });
-  }
-
-  updateSubSearchSortIndicators();
+// Public setters if you want a UI hook for assigning colors
+function setUserTgColor(tgid, hex) {
+  tgUserColors[tgid] = hex;
+  try { localStorage.setItem(TG_USER_COLORS_KEY, JSON.stringify(tgUserColors)); } catch (_) {}
+}
+function clearUserTgColor(tgid) {
+  delete tgUserColors[tgid];
+  try { localStorage.setItem(TG_USER_COLORS_KEY, JSON.stringify(tgUserColors)); } catch (_) {}
 }
 
-function sortSubSearchTable(colIndex, dir, preserveIndicatorsOnly) {
-  var table = document.getElementById("subSearchTable");
-  if (!table) return;
+// Apply highlight to a call-history row element
+// NOTE: duplicate definitions of applyTgRowHighlight() and applyCurrentTgHighlight()
+// were removed during refactoring.  See the unified implementations earlier in this file.
 
-  var rows = Array.from(table.querySelectorAll("tr")).slice(1); // skip header
-  // keep current filter state: we sort all rows (visible + hidden)
-  rows.sort(function (a, b) {
-    var aText = getCellText(a, colIndex);
-    var bText = getCellText(b, colIndex);
+const tgColorId = document.getElementById('tgColorId');
+const tgColorPicker = document.getElementById('tgColorPicker');
+const tgColorSave = document.getElementById('tgColorSave');
+const tgColorClear = document.getElementById('tgColorClear');
 
-    // Time column: "HH:MM:SS" -> sortable
-    if (colIndex === 0) {
-      var at = timeToSortable(aText);
-      var bt = timeToSortable(bText);
-      return (dir === "asc") ? (at - bt) : (bt - at);
-    }
+if (tgColorSave) tgColorSave.addEventListener('click', () => {
+  const id = tgColorId.value.trim();
+  const hex = tgColorPicker.value;
+  if (id) {
+    setUserTgColor(id, hex);
+    applySmartColorsToCallHistory();
+    applySmartColorsToFrequencyTable();
+    applySmartColorsToChannels();
+  }
+});
 
-    // Numeric-ish compare if possible (TGID etc)
-    var aNum = isNumLike(aText);
-    var bNum = isNumLike(bText);
-    var cmp = 0;
+if (tgColorClear) tgColorClear.addEventListener('click', () => {
+  const id = tgColorId.value.trim();
+  if (id) {
+    clearUserTgColor(id);
+    applySmartColorsToCallHistory();
+    applySmartColorsToFrequencyTable();
+    applySmartColorsToChannels();
+  }
+});
 
-    if (aNum && bNum) {
-      cmp = Number(aText) - Number(bText);
-    } else {
-      cmp = String(aText).localeCompare(String(bText), undefined, { numeric: true, sensitivity: "base" });
-    }
+/* ======= HOW TO WIRE THESE IN =======
+1) When your code appends a new row to #callHistoryBody:
+   const tr = document.createElement('tr');
+   // ... fill <td>s as you do now ...
+   applyTgRowHighlight(tr, tgid);
+   callHistoryBody.appendChild(tr);
 
-    return (dir === "asc") ? cmp : -cmp;
+2) Whenever the “now talking” TG updates (same spot you set #displayTalkgroup / #displayTgid):
+   applyCurrentTgHighlight(tgid);
+
+3) (Optional UI) If you add a color picker in Settings: call setUserTgColor(tgid, '#RRGGBB') or clearUserTgColor(tgid).
+======================================= */
+
+
+/* ========= THEME / ACCENT ========= */
+function applyAccent(hex) {
+  document.documentElement.style.setProperty('--accent', hex);
+  try { localStorage.setItem('ui_accent', hex); } catch(_) {}
+}
+
+(function initAccent() {
+  try {
+    const saved = localStorage.getItem('ui_accent');
+    if (saved) applyAccent(saved);
+  } catch (_) {}
+})();
+
+// Wire existing color picker if present
+const uiAccentPicker = document.getElementById('valueColorPicker');
+const uiAccentReset  = document.getElementById('resetColor');
+
+if (uiAccentPicker) uiAccentPicker.addEventListener('input', e => applyAccent(e.target.value));
+if (uiAccentReset)  uiAccentReset.addEventListener('click', () => {
+  applyAccent('#00ffff');
+  if (uiAccentPicker) uiAccentPicker.value = '#00ffff';
+});
+
+/* ========= PLOT IMAGE FADE-IN ========= */
+function markImageReady(img) {
+  requestAnimationFrame(() => img.classList.add('ready'));
+}
+// Example: whenever you update a plot image src in your code:
+function setPlotSrc(imgId, src) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+  img.classList.remove('ready');
+  img.onload = () => requestAnimationFrame(() => img.classList.add('ready'));
+  img.src = src;
+}
+
+/* Collapsibles: remember open/closed state (optional) */
+document.querySelectorAll('details.collapsible[id]').forEach(d => {
+  const key = 'collapsible_' + d.id;
+  try { d.open = localStorage.getItem(key) !== 'closed'; } catch(_) {}
+  d.addEventListener('toggle', () => {
+    try { localStorage.setItem(key, d.open ? 'open' : 'closed'); } catch(_) {}
   });
+});
 
-  // Re-append rows in sorted order
-  for (var i = 0; i < rows.length; i++) table.appendChild(rows[i]);
-
-  if (!preserveIndicatorsOnly) {
-    // keep filter applied after sort
-    filterSubSearchTable();
-  }
+/* ========= COLLAPSIBLE (optional JS API) ========= */
+// Programmatically open/close a <details> panel by id
+function setCollapsible(id, open) {
+  const el = document.getElementById(id);
+  if (el && el.tagName === 'DETAILS') el.open = !!open;
 }
+window.setCollapsible = setCollapsible;
 
-function updateSubSearchSortIndicators() {
-  var table = document.getElementById("subSearchTable");
-  if (!table) return;
+/* ========= “Last UI Update” stamp ========= */
+(function stampUiUpdate() {
+  const el = document.getElementById('lastUiUpdate');
+  if (!el) return;
+  const now = new Date();
+  const fmt = now.toLocaleString(undefined, { year:'numeric', month:'short', day:'2-digit' });
+  el.textContent = fmt;
+})();
 
-  var ths = table.querySelectorAll("tr:first-child th[data-ss-col]");
-  for (var i = 0; i < ths.length; i++) {
-    var th = ths[i];
-    var base = (th.textContent || "").replace(/\s*[▲▼]\s*$/, ""); // strip old arrow
-    var col = parseInt(th.getAttribute("data-ss-col"), 10);
+// end buildSiteAliases
 
-    if (SUB_SEARCH_SORT.col === col) {
-      th.textContent = base + (SUB_SEARCH_SORT.dir === "asc" ? " ▲" : " ▼");
-    } else {
-      th.textContent = base;
-    }
-  }
-}
+// function buildSiteAliases(sa) {
+// 
+// 	// by sysid
+// 	
+//     const siteAliases = {};
+// 
+//     // If input is not an array or is empty, bail out
+//     if (!Array.isArray(sa) || sa.length === 0) {
+//         console.warn("buildSiteAliases: Invalid or empty input.");
+//         return siteAliases;
+//     }
+// 
+//     sa.forEach(system => {
+//         // Verify required fields exist
+//         if (!system || typeof system !== 'object' || !system.sysid || !system.site_alias) {
+//             console.warn("buildSiteAliases: Skipping invalid system entry:", system);
+//             return;
+//         }
+// 
+//         const sysid = String(system.sysid).replace(/^0x/i, "").toUpperCase();  // Normalize sysid
+//         const aliases = system.site_alias;
+// 
+//         if (!sysid || typeof aliases !== 'object') {
+//             console.warn("buildSiteAliases: Invalid sysid or aliases structure.");
+//             return;
+//         }
+// 
+//         siteAliases[sysid] = {};
+// 
+//         for (const rfssId in aliases) {
+//             if (Object.prototype.hasOwnProperty.call(aliases, rfssId)) {
+//                 siteAliases[sysid][rfssId] = {};
+// 
+//                 for (const siteId in aliases[rfssId]) {
+//                     if (Object.prototype.hasOwnProperty.call(aliases[rfssId], siteId)) {
+//                         const aliasObj = aliases[rfssId][siteId];
+// 
+//                         if (aliasObj && typeof aliasObj.alias === 'string') {
+//                             siteAliases[sysid][rfssId][siteId] = { alias: aliasObj.alias };
+//                         } else {
+//                             console.warn(`buildSiteAliases: Missing alias for sysid=${sysid}, rfss=${rfssId}, site=${siteId}`);
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     });
+// 
+//     return siteAliases;
+// } // end buildSiteAliases
 
-function getCellText(tr, idx) {
-  var tds = tr.querySelectorAll("td");
-  var cell = tds[idx];
-  return cell ? (cell.textContent || "").trim() : "";
-}
-
-function isNumLike(v) {
-  if (v == null) return false;
-  var s = String(v).trim();
-  if (s === "") return false;
-  return !isNaN(Number(s));
-}
-
-function timeToSortable(hms) {
-  // "HH:MM:SS" -> seconds since midnight
-  var m = String(hms || "").trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (!m) return 0;
-  var hh = parseInt(m[1], 10) || 0;
-  var mm = parseInt(m[2], 10) || 0;
-  var ss = parseInt(m[3] || "0", 10) || 0;
-  return hh * 3600 + mm * 60 + ss;
-}
-
-function escHtml(s) {
-  return String(s == null ? "" : s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function filterSubSearchTable() {
-  var input = document.getElementById("subSearchInput");
-  var table = document.getElementById("subSearchTable");
-  var meta  = document.getElementById("subSearchMeta");
-  if (!table) return;
-
-  var q = (input ? input.value : "").toLowerCase().trim();
-  var rows = table.querySelectorAll("tr");
-
-  var visibleCount = 0;
-
-  for (var i = 1; i < rows.length; i++) {
-    var row = rows[i];
-    var text = (row.textContent || "").toLowerCase();
-    var show = (!q || text.indexOf(q) !== -1);
-
-    row.style.display = show ? "" : "none";
-    if (show) visibleCount++;
-  }
-
-  if (meta) {
-    var t = meta.dataset.snapshotTime || "--:--:--";
-    var total = meta.dataset.totalRows || visibleCount;
-
-    meta.textContent =
-      "Snapshot: " + t +
-      " | Matches: " + visibleCount +
-      " / " + total;
-  }
-}
-
-// Subscriber search  end
 
 function getCaller() {
 	
@@ -2936,7 +2776,6 @@ function csvTable() {
         const headers = Array.from(headerRow).map(cell => {
             let data = cell.innerText.trim().replace(/(\r\n|\n|\r)/gm, '').replace(/\s+/g, ' ');
             data = data.replace(/"/g, '""');
-            
             return `"${data}"`;
         });
         csv.push(headers.join(separator));
@@ -2956,8 +2795,7 @@ function csvTable() {
     }
 
     const csv_string = csv.join('\n');
-
-    const filename = "export_" + table_id + "_" + new Date().toLocaleDateString().split("/").join("-") + ".csv";
+    const filename = `export_${table_id}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
 
     const link = document.createElement('a');
     link.style.display = 'none';
@@ -2968,401 +2806,121 @@ function csvTable() {
     document.body.removeChild(link);
 }
 
-function filterSubscribers() {
-    var input = document.getElementById("subFilter1");
-    var table = document.getElementById("subscribers");
-    if (!input || !table) return;
+// ---- Simple audio hookup for OP25 stream ----
+// Default stream URL used when the user has not specified a custom stream.
+// A custom stream can be set via the Settings panel.  See DEFAULT_STREAM_URL
+// for the base value and CUSTOM_STREAM_KEY for localStorage key.
+const DEFAULT_STREAM_URL = "http://192.168.222.125:8000/op25.mp3";
 
-    var filter = input.value.toLowerCase();
-    var rows = table.getElementsByTagName("tr");
+// Key used in localStorage for persisting the user's custom audio stream URL.
+const CUSTOM_STREAM_KEY = "customStreamUrl";
 
-    // skip header row (index 0)
-    for (var i = 1; i < rows.length; i++) {
-        var row = rows[i];
-        var text = row.textContent.toLowerCase();
-
-        row.style.display = text.includes(filter) ? "" : "none";
-    }
-}
-
-function filterCallHistgory() {
-    var input = document.getElementById("historyFilter");
-    var table = document.getElementById("callHistory");
-    if (!input || !table) return;
-
-    var filter = input.value.toLowerCase();
-    var rows = table.getElementsByTagName("tr");
-
-    // skip header row (index 0)
-    for (var i = 1; i < rows.length; i++) {
-        var row = rows[i];
-        var text = row.textContent.toLowerCase();
-
-        row.style.display = text.includes(filter) ? "" : "none";
-    }
-}
-
-function setSubSort(th) {
+/**
+ * Returns the preferred stream URL.  If the user has set a custom URL in
+ * settings, that value will be used.  Otherwise this falls back to
+ * DEFAULT_STREAM_URL.  The return value is always a non-empty string.
+ */
+function getPreferredStreamUrl() {
   try {
-    var key = th && th.getAttribute ? th.getAttribute("data-sort") : null;
-    if (!key) return;
-
-    if (subSortKey === key) subSortDir *= -1;
-    else { subSortKey = key; subSortDir = 1; }
-
-    updateSubSortHeaderIndicators();
-
-    // Rebuild with whatever data source you already call update_sub_reg_all() from.
-    // If you have the last payload cached, call update_sub_reg_all(lastSubRegData).
-  } catch (e) {
-    console.log("setSubSort error:", e);
+    const saved = localStorage.getItem(CUSTOM_STREAM_KEY);
+    if (saved && saved.trim() !== "") {
+      return saved.trim();
+    }
+  } catch (_) {
+    // ignore JSON/localStorage errors
   }
+  return DEFAULT_STREAM_URL;
 }
 
-function updateSubSortHeaderIndicators() {
-  var table = document.getElementById("subscribers");
-  if (!table) return;
-
-  var ths = table.querySelectorAll("tr:first-child th[data-sort]");
-  ths.forEach(function(th) {
-    var base = (th.textContent || "").replace(/[▲▼]\s*$/, "").trim();
-    th.textContent = base;
-    var key = th.getAttribute("data-sort");
-    if (key === subSortKey) th.textContent = base + (subSortDir === 1 ? " ▲" : " ▼");
-  });
+/**
+ * Saves a custom stream URL to localStorage.  If url is falsy, any custom URL
+ * will be removed.  After saving, the audio player and UI will be refreshed
+ * to reflect the new value.
+ *
+ * @param {string} url  The URL to save.  May be an empty string to clear.
+ */
+function saveCustomStreamUrl(url) {
+  try {
+    if (url && url.trim() !== "") {
+      localStorage.setItem(CUSTOM_STREAM_KEY, url.trim());
+    } else {
+      localStorage.removeItem(CUSTOM_STREAM_KEY);
+    }
+  } catch (_) {
+    // ignore localStorage errors
+  }
+  // Update the audio player and UI after saving
+  refreshStreamUI();
 }
 
+/**
+ * Refreshes the audio player and associated UI (streamButton and streamURL)
+ * based on the current preferred stream URL.  This should be called
+ * whenever the underlying URL changes (e.g. after saving a new custom URL
+ * or when page loads).
+ */
+function refreshStreamUI() {
+  //console.log("refreshStreamUI called", new Date().toISOString());
+  const audio    = document.getElementById("op25Audio");
+  const btnSlot  = document.getElementById("streamButton");
+  const urlLabel = document.getElementById("streamURL");
+  const url = getPreferredStreamUrl();
 
-// Seen Talkgroups
+  if (audio) {
+    const isPlaying = !audio.paused && !audio.ended && audio.readyState > 2;
+    if (!isPlaying) {
+      try { audio.pause(); } catch (_) {}
+      audio.src = url;
+    }
+    audio.crossOrigin = "anonymous";
+  }
 
-function openSeenTgModal() {
-  var container = document.getElementById("seenTgPopup");
-  if (!container) return;
+  if (urlLabel) {
+    urlLabel.textContent = url;
+  }
 
-  refreshSeenTgSnapshot();
+  if (btnSlot) {
+    btnSlot.innerHTML = `
+      <button class="small-button" id="audioPlayBtn">▶ Play Audio</button>
+    `;
 
-  container.classList.add("show");
-  container.setAttribute("aria-hidden", "false");
-
-  setTimeout(function () {
-    var input = document.getElementById("seenTgFilter");
-    if (input) input.focus();
-  }, 0);
-}
-
-function closeSeenTgModal() {
-  var container = document.getElementById("seenTgPopup");
-  if (!container) return;
-
-  container.classList.remove("show");
-  container.setAttribute("aria-hidden", "true");
-}
-
-function clearSeenTgFilter() {
-  var input = document.getElementById("seenTgFilter");
-  if (input) input.value = "";
-  filterSeenTgTable();
-}
-
-function refreshSeenTgSnapshot() {
-
-  var table = document.getElementById("seenTgTable");
-  var meta  = document.getElementById("seenTgMeta");
-  if (!table) { console.error("Seen Talkgroup Table not found."); return; }
-
-  // Build rows from TG_TAG_CACHE
-  var rows = [];
-  var sysCount = 0;
-
-  Object.keys(TG_TAG_CACHE || {}).forEach(function (sysid) {
-    var tgMap = TG_TAG_CACHE[sysid];
-    if (!tgMap || typeof tgMap !== "object") return;
-
-    sysCount++;
-
-    Object.keys(tgMap).forEach(function (tgid) {
-      var entry = tgMap[tgid];
-
-      // entry might be string (old) or object (new: {tag, hits})
-      var tag = "";
-      var hits = 0;
-
-      if (entry != null && typeof entry === "object") {
-        tag = entry.tag == null ? "" : String(entry.tag);
-        hits = Number(entry.hits || 0);
-      } else {
-        tag = entry == null ? "" : String(entry);
-        hits = 0;
-      }
-
-      rows.push({
-        sysid: String(sysid),
-        tgid: String(tgid),
-        tag: tag,
-        hits: hits
+    const playBtn = document.getElementById("audioPlayBtn");
+    if (playBtn && audio) {
+      playBtn.addEventListener('click', () => {
+        audio.play().catch(err => console.error("Audio play failed:", err));
       });
+    }
+  }
+}
+
+function initAudioPlayer() {
+  const audio   = document.getElementById("op25Audio");
+  const btnSlot = document.getElementById("streamButton");
+  const urlLabel = document.getElementById("streamURL");
+
+  if (!audio) return;
+
+  // Initialize stream URL and labels
+  refreshStreamUI();
+
+  // Create play/pause button once.  This button uses the state of the audio
+  // element to toggle between play and pause.  It also satisfies browser
+  // autoplay policies by requiring a user gesture to start playback.
+  //deleted
+
+  // Wire up the Save Audio URL button and input fields.  This ensures
+  // custom stream URLs entered by the user are persisted and applied.
+  const saveBtn = document.getElementById('saveStreamUrlBtn');
+  const inputField = document.getElementById('customStreamUrlInput');
+  if (saveBtn && inputField && !saveBtn.dataset.wired) {
+    saveBtn.addEventListener('click', () => {
+      const val = inputField.value.trim();
+      saveCustomStreamUrl(val);
     });
-  });
-
-  // Sort based on current selected header
-  rows.sort(function(a, b) {
-    var col = SEEN_TG_SORT_COL;
-    var dir = SEEN_TG_SORT_DIR;
-
-    // 0=System, 1=TGID, 2=Tag, 3=Hits
-    if (col === 0) return dir * a.sysid.localeCompare(b.sysid);
-
-    if (col === 1) {
-      var an = parseInt(a.tgid, 10), bn = parseInt(b.tgid, 10);
-      if (!isNaN(an) && !isNaN(bn)) return dir * (an - bn);
-      return dir * a.tgid.localeCompare(b.tgid);
-    }
-
-    if (col === 2) return dir * a.tag.localeCompare(b.tag);
-
-    if (col === 3) return dir * ((a.hits || 0) - (b.hits || 0));
-
-    return 0;
-  });
-
-  // Render table with THEAD/TBODY so sticky headers work
-  table.innerHTML = "";
-
-  var thead = document.createElement("thead");
-  var htr = document.createElement("tr");
-  var headers = ["System", "TGID", "Talkgroup", "Hits"];
-
-  headers.forEach(function (h, idx) {
-    var th = document.createElement("th");
-    th.className = "th-section";
-    th.textContent = seenTgHeaderLabel(h, idx);
-
-    // store col index for click sort
-    th.setAttribute("data-seen-col", String(idx));
-
-    htr.appendChild(th);
-  });
-
-  thead.appendChild(htr);
-  table.appendChild(thead);
-
-  var tbody = document.createElement("tbody");
-
-  rows.forEach(function (r) {
-    var tr = document.createElement("tr");
-
-    tr.insertCell(0).textContent = r.sysid;
-    tr.insertCell(1).textContent = r.tgid;
-
-    var td2 = tr.insertCell(2);
-    td2.textContent = r.tag;
-    td2.style.textAlign = "left";
-
-    tr.insertCell(3).textContent = String(r.hits || 0);
-
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-
-  // Hook sorting clicks after header exists
-  wireSeenTgSortHandlers();
-
-  // Meta
-  var now = new Date();
-  var hh = String(now.getHours()).padStart(2, "0");
-  var mm = String(now.getMinutes()).padStart(2, "0");
-  var ss = String(now.getSeconds()).padStart(2, "0");
-
-  if (meta) {
-    meta.textContent =
-      "Snapshot: " + hh + ":" + mm + ":" + ss +
-      "  |  Systems: " + sysCount +
-      "  |  Rows: " + rows.length;
-  }
-
-  filterSeenTgTable();
-  applySmartColorsSeenTg();
-}
-
-function filterSeenTgTable() {
-  var input = document.getElementById("seenTgFilter");
-  var table = document.getElementById("seenTgTable");
-  var meta  = document.getElementById("seenTgMeta");
-  if (!table) return;
-
-  var q = (input ? input.value : "").toLowerCase().trim();
-  var trs = table.querySelectorAll("tr");
-
-  var visible = 0;
-  for (var i = 1; i < trs.length; i++) { // skip header
-    var tr = trs[i];
-    var text = (tr.textContent || "").toLowerCase();
-    var show = (!q || text.indexOf(q) !== -1);
-    tr.style.display = show ? "" : "none";
-    if (show) visible++;
-  }
-
-  // If you want the meta to include match count without “appending”
-  if (meta) {
-    // Rewrite meta but keep the prefix before " | Matches:"
-    var base = meta.textContent || "";
-    base = base.replace(/\s*\|\s*Matches:\s*\d+\s*$/i, "");
-    meta.textContent = base + "  |  Matches: " + visible;
+    // Prevent multiple wiring
+    saveBtn.dataset.wired = 'true';
   }
 }
 
-function sortSeenTgRows(rows) {
-  if (SEEN_TG_SORT.col === null) return rows;
-
-  var col = SEEN_TG_SORT.col;
-  var asc = SEEN_TG_SORT.asc ? 1 : -1;
-
-  rows.sort(function (a, b) {
-    var va, vb;
-
-    switch (col) {
-      case 0: va = a.sysid; vb = b.sysid; break;
-      case 1: va = a.tgid;  vb = b.tgid;  break;
-      case 2: va = a.tag;   vb = b.tag;   break;
-      case 3: va = a.hits;  vb = b.hits;  break;
-      default: return 0;
-    }
-
-    // numeric compare where possible
-    var na = Number(va);
-    var nb = Number(vb);
-    if (!isNaN(na) && !isNaN(nb)) {
-      return (na - nb) * asc;
-    }
-
-    return String(va).localeCompare(String(vb)) * asc;
-  });
-
-  return rows;
-}
-
-function wireSeenTgSortHandlers() {
-  var table = document.getElementById("seenTgTable");
-  if (!table) return;
-
-  var ths = table.querySelectorAll("thead th[data-seen-col]");
-  ths.forEach(function (th) {
-    th.style.cursor = "pointer";
-    th.onclick = function () {
-      var col = Number(th.getAttribute("data-seen-col"));
-
-      if (SEEN_TG_SORT_COL === col) {
-        SEEN_TG_SORT_DIR = -SEEN_TG_SORT_DIR; // toggle
-      } else {
-        SEEN_TG_SORT_COL = col;
-        SEEN_TG_SORT_DIR = 1; // default asc
-      }
-
-      refreshSeenTgSnapshot();
-    };
-  });
-}
-
-function tagToString(v) {
-  if (v == null) return "";                 // null/undefined
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-
-  // objects: try common shapes, otherwise blank
-  if (typeof v === "object") {
-    if (typeof v.tag === "string") return v.tag.trim();
-    if (typeof v.name === "string") return v.name.trim();
-    if (typeof v.label === "string") return v.label.trim();
-    if (typeof v.text === "string") return v.text.trim();
-    // Last resort: don't stringify "[object Object]" into UI
-    return "";
-  }
-
-  return "";
-}
-
-function seenTgCompare(a, b, col, dir) {
-  var mult = (dir === "desc") ? -1 : 1;
-
-  // 0=sysid, 1=tgid, 2=tag, 3=hits
-  if (col === 0) {
-    return mult * a.sysid.localeCompare(b.sysid);
-  }
-  if (col === 1) {
-    var an = parseInt(a.tgid, 10), bn = parseInt(b.tgid, 10);
-    if (!isNaN(an) && !isNaN(bn)) return mult * (an - bn);
-    return mult * a.tgid.localeCompare(b.tgid);
-  }
-  if (col === 2) {
-    return mult * String(a.tag || "").localeCompare(String(b.tag || ""));
-  }
-  if (col === 3) {
-    return mult * ((Number(a.hits) || 0) - (Number(b.hits) || 0));
-  }
-
-  // fallback stable-ish
-  return mult * a.sysid.localeCompare(b.sysid);
-}
-
-function seenTgHeaderLabel(label, colIndex) {
-  // active column shows ▲ or ▼, others show ⇅
-  if (colIndex === SEEN_TG_SORT_COL) {
-    return label + (SEEN_TG_SORT_DIR === 1 ? " ▲" : " ▼");
-  }
-  return label + " ⇅";
-}
-
-function clearFilter(id) {
-  var el = document.getElementById(id);
-  if (!el) return;
-
-  el.value = "";
-  el.dispatchEvent(new Event("input")); // triggers existing filters
-}
-
-// Compare two values for sorting.
-// If both values look numeric, compare them numerically.
-// Otherwise, fall back to locale-aware string comparison,
-// using numeric-aware ordering and case-insensitive matching.
-function cmp(a, b) {
-  // numeric compare if possible, else string compare
-  var aNum = isNumLike(a), bNum = isNumLike(b);
-  if (aNum && bNum) return Number(a) - Number(b);
-  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
-}
-
-function isNumLike(v) {
-  if (v === null || v === undefined) return false;
-  var s = String(v).trim();
-  if (s === "") return false;
-  return !Number.isNaN(Number(s));
-}
-
-// Backdrop + Esc close (mirrors your other modal style)
-document.addEventListener("click", function (e) {
-  var container = document.getElementById("seenTgPopup");
-  if (!container || !container.classList.contains("show")) return;
-  if (e.target === container) closeSeenTgModal();
-});
-
-document.addEventListener("keydown", function (e) {
-  if (e.key !== "Escape") return;
-  var container = document.getElementById("seenTgPopup");
-  if (container && container.classList.contains("show")) closeSeenTgModal();
-});
-
-// Close modal on backdrop click
-document.addEventListener("click", function (e) {
-  var container = document.getElementById("searchSubsPopup");
-  if (!container || !container.classList.contains("show")) return;
-  if (e.target === container) closeSubSearchModal();
-});
-
-// Close modal on Esc
-document.addEventListener("keydown", function (e) {
-  if (e.key !== "Escape") return;
-  var container = document.getElementById("searchSubsPopup");
-  if (container && container.classList.contains("show")) closeSubSearchModal();
-});
-
+// Initialize audio player after the DOM has loaded
+window.addEventListener("DOMContentLoaded", initAudioPlayer);
