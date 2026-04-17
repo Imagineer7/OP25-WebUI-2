@@ -10,8 +10,6 @@ import pytz
 
 ICECAST_BASE   = os.getenv("ICECAST_BASE",   "http://127.0.0.1:8000")
 ICECAST_MOUNT  = os.getenv("ICECAST_MOUNT",  "/op25.mp3")  # set to your mount
-OP25_BASE      = os.getenv("OP25_BASE",      "http://127.0.0.1:8080")
-OP25_RO_NOW    = os.getenv("OP25_RO_NOW_URL", f"{OP25_BASE.rstrip('/')}/ro-now")
 LISTEN_ADDR    = os.getenv("LISTEN_ADDR",    "0.0.0.0")
 LISTEN_PORT    = int(os.getenv("LISTEN_PORT", "9090"))
 TIMEOUT        = float(os.getenv("TIMEOUT",   "2.5"))
@@ -26,6 +24,10 @@ SHORT_HIST_LIMIT = 15
 
 STATS_TODAY_PATH = os.path.join(DATA_DIR, "stats_today.json")
 STATS_YEST_PATH  = os.path.join(DATA_DIR, "stats_yesterday.json")
+
+# Optional OP25 tag sources for canonical TGID->name mappings.
+OP25_TG_TAGS_FILE = os.getenv("OP25_TG_TAGS_FILE", "")
+OP25_TRUNK_TSV = os.getenv("OP25_TRUNK_TSV", "")
 
 # In-memory state for call tracking
 calltrack = {
@@ -43,6 +45,13 @@ def home():
 @app.route("/robots.txt")
 def robots():
     return "User-agent: *\nDisallow: /\n", 200, {"Content-Type": "text/plain"}
+
+@app.route("/sw.js")
+def service_worker():
+    resp = send_from_directory(app.static_folder, "sw.js", max_age=0)
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
 
 # ---- CSP-safe config (single definition) ----
 @app.route("/config.js")
@@ -166,7 +175,7 @@ def api_live():
             expires = testcall_override["expires"]
 
         # Fetch real data
-        r = requests.get(OP25_RO_NOW, timeout=2.0)
+        r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
         r.raise_for_status()
         real_data = r.json()
 
@@ -356,7 +365,7 @@ def poll_and_update_short_history_and_stats():
 
     while True:
         try:
-            r = requests.get(OP25_RO_NOW, timeout=2.0)
+            r = requests.get("http://127.0.0.1:8080/ro-now", timeout=2.0)
             r.raise_for_status()
             data = r.json()
             n = data.get("now", {})
@@ -437,6 +446,144 @@ def api_stats_today():
 def api_stats_yesterday():
     stats = load_stats(STATS_YEST_PATH)
     return jsonify({"ok": True, "stats": stats})
+
+def _discover_tgid_tag_files():
+    paths = []
+
+    if OP25_TG_TAGS_FILE:
+        paths.append(OP25_TG_TAGS_FILE)
+
+    if OP25_TRUNK_TSV and os.path.exists(OP25_TRUNK_TSV):
+        trunk_dir = os.path.dirname(OP25_TRUNK_TSV)
+        try:
+            with open(OP25_TRUNK_TSV, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s or s.startswith("#"):
+                        continue
+                    cols = [c.strip().strip('"') for c in s.split("\t")]
+                    if len(cols) < 6:
+                        continue
+                    # Column 6 in trunk.tsv is TGID Tags File
+                    tg_file = cols[5]
+                    if not tg_file or tg_file.lower().endswith("tgid tags file"):
+                        continue
+                    if os.path.isabs(tg_file):
+                        paths.append(tg_file)
+                    else:
+                        paths.append(os.path.normpath(os.path.join(trunk_dir, tg_file)))
+        except Exception:
+            pass
+
+    # Default common OP25 locations, used if env vars are not set.
+    defaults = [
+        "/op25/op25/gr-op25_repeater/apps/trunk-tags.tsv",
+        "/op25/op25/gr-op25_repeater/apps/tgid-tags.tsv",
+        "/opt/op25/op25/gr-op25_repeater/apps/trunk-tags.tsv",
+        "/opt/op25/op25/gr-op25_repeater/apps/tgid-tags.tsv",
+    ]
+    paths.extend(defaults)
+
+    # De-duplicate and keep only existing files.
+    seen = set()
+    out = []
+    for p in paths:
+        if not p:
+            continue
+        np = os.path.normpath(p)
+        if np in seen:
+            continue
+        seen.add(np)
+        if os.path.exists(np):
+            out.append(np)
+    return out
+
+def _read_tgid_tags_files(paths):
+    rows = []
+    for path in paths:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s or s.startswith("#"):
+                        continue
+                    cols = [c.strip().strip('"') for c in s.split("\t")]
+                    if len(cols) < 2:
+                        continue
+                    tgid = cols[0]
+                    # Prefer long/description column when available.
+                    name = cols[2] if len(cols) >= 3 and cols[2] else cols[1]
+                    if not tgid or not tgid.isdigit():
+                        continue
+                    rows.append({"tgid": tgid, "name": name})
+        except Exception:
+            continue
+    return rows
+
+def _collect_talkgroups_catalog():
+    # Aggregate known talkgroups from configured OP25 tags + stats/history files.
+    tg_map = {}
+
+    def upsert(tgid, name="", count=0, airtime=0.0):
+        tgid = str(tgid or "").strip()
+        if not tgid:
+            return
+        if tgid not in tg_map:
+            tg_map[tgid] = {"tgid": tgid, "name": "", "count": 0, "airtime": 0.0}
+        rec = tg_map[tgid]
+        if name and (not rec["name"] or rec["name"].startswith("TG ")):
+            rec["name"] = str(name)
+        rec["count"] += int(count or 0)
+        rec["airtime"] += float(airtime or 0.0)
+
+    # Canonical mappings from OP25 tags files.
+    for row in _read_tgid_tags_files(_discover_tgid_tag_files()):
+        upsert(tgid=row.get("tgid", ""), name=row.get("name", ""), count=0, airtime=0.0)
+
+    # stats_today / stats_yesterday
+    for stats_path in (STATS_TODAY_PATH, STATS_YEST_PATH):
+        stats = load_stats(stats_path)
+        tgids = stats.get("tgids", {}) if isinstance(stats, dict) else {}
+        if isinstance(tgids, dict):
+            for tgid, data in tgids.items():
+                if not isinstance(data, dict):
+                    continue
+                upsert(
+                    tgid=tgid,
+                    name=data.get("name", ""),
+                    count=data.get("count", 0),
+                    airtime=data.get("airtime", 0.0),
+                )
+
+    # short history and long history files
+    for hist_path in (SHORT_HIST_PATH, HIST_PATH):
+        if not os.path.exists(hist_path):
+            continue
+        try:
+            hist = json.load(open(hist_path)) or []
+        except Exception:
+            hist = []
+        if isinstance(hist, list):
+            for row in hist:
+                if not isinstance(row, dict):
+                    continue
+                upsert(tgid=row.get("tgid", ""), name=row.get("name", ""), count=1, airtime=0.0)
+
+    # Deterministic sort by count desc, then numeric TGID if possible.
+    def sort_key(rec):
+        tgid = rec.get("tgid", "")
+        try:
+            n = int(tgid)
+        except Exception:
+            n = 10**12
+        return (-int(rec.get("count", 0)), n, tgid)
+
+    return sorted(tg_map.values(), key=sort_key)
+
+@app.route("/api/talkgroups")
+def api_talkgroups():
+    data = _collect_talkgroups_catalog()
+    return jsonify({"ok": True, "talkgroups": data})
 
 if __name__ == "__main__":
     app.run(host=LISTEN_ADDR, port=LISTEN_PORT)

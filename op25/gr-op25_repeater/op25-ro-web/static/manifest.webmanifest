@@ -1,0 +1,17 @@
+{
+  "name": "ALMR Scanner",
+  "short_name": "Scanner",
+  "description": "Live scanner audio and talkgroup activity dashboard",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "icons": [
+    {
+      "src": "/static/favicon.ico",
+      "sizes": "48x48 64x64 96x96 128x128 256x256",
+      "type": "image/x-icon"
+    }
+  ]
+}
