@@ -2070,6 +2070,7 @@ showHistoryTab?.addEventListener("click", () => {
   showStatsTab.classList.remove("active");
   statsPanel.style.display = "none";
   histTableWrap.style.display = "";
+  clearInterval(incidentsPollInterval);
 });
 showStatsTab?.addEventListener("click", () => {
   showStatsTab.classList.add("active");
@@ -2077,6 +2078,7 @@ showStatsTab?.addEventListener("click", () => {
   statsPanel.style.display = "";
   histTableWrap.style.display = "none";
   pollStats("today");
+  pollIncidents();
 });
 
 // Today/Yesterday toggle
@@ -2232,6 +2234,147 @@ function drawBarGraph(canvas, labels, values, title) {
     ctx.fillText(values[i].toFixed(1), leftPad + barW + 8, y + barH * 0.7);
   }
 }
+
+// ===== Incident tracking panel =====
+const incidentsBody = document.getElementById("incidentsBody");
+const incidentsSummary = document.getElementById("incidentsSummary");
+const showIncidentsCompleted = document.getElementById("showIncidentsCompleted");
+const showIncidentsActive = document.getElementById("showIncidentsActive");
+let incidentsMode = "completed";
+let incidentsPollInterval = null;
+let incidentsCache = {completed: [], active: []};
+let incidentBurstChart = null;
+
+function fmtTs(ts) {
+  const n = Number(ts || 0);
+  if (!n) return "-";
+  return new Date(n * 1000).toLocaleString();
+}
+
+function fmtSec(sec) {
+  const n = Math.max(0, Number(sec || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const s = Math.floor(n % 60);
+  if (h) return `${h}h ${m}m ${s}s`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function getIncidentBuckets(row) {
+  if (Array.isArray(row.calls_per_minute)) {
+    return row.calls_per_minute.map(x => ({minute: Number(x.minute || 0), calls: Number(x.calls || 0)}));
+  }
+  const map = row.calls_per_min || {};
+  return Object.keys(map)
+    .map(k => ({minute: Number(k), calls: Number(map[k] || 0)}))
+    .sort((a, b) => a.minute - b.minute);
+}
+
+function drawIncidentBurst(row) {
+  const canvas = document.getElementById("incidentBurstChart");
+  if (!canvas || !window.Chart || !row) return;
+  const buckets = getIncidentBuckets(row);
+  const labels = buckets.map(b => `+${b.minute}m`);
+  const values = buckets.map(b => b.calls);
+
+  if (incidentBurstChart) incidentBurstChart.destroy();
+  incidentBurstChart = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Calls per minute",
+        data: values,
+        borderColor: "#3dd6ff",
+        backgroundColor: "rgba(61,214,255,0.2)",
+        fill: true,
+        tension: 0.25,
+      }],
+    },
+    options: {
+      responsive: true,
+      animation: {duration: 350},
+      plugins: {
+        legend: {display: true},
+        title: {display: true, text: `${row.label || "Incident"} Burst Pattern`},
+      },
+      scales: {
+        y: {beginAtZero: true, ticks: {precision: 0}},
+      },
+    },
+  });
+}
+
+function renderIncidents() {
+  if (!incidentsBody) return;
+  const rows = incidentsMode === "active" ? incidentsCache.active : incidentsCache.completed;
+  incidentsBody.innerHTML = "";
+
+  if (!rows.length) {
+    incidentsSummary.textContent = incidentsMode === "active" ? "No active incidents." : "No completed incidents yet.";
+    drawIncidentBurst(null);
+    return;
+  }
+
+  incidentsSummary.textContent = `${rows.length} ${incidentsMode} incident${rows.length === 1 ? "" : "s"}`;
+  rows.forEach((row, idx) => {
+    const tr = document.createElement("tr");
+    const tgids = (row.tgids || []).join(", ");
+    tr.innerHTML = `
+      <td>${row.label || row.id || "Incident"}</td>
+      <td>${tgids || "-"}</td>
+      <td>${fmtTs(row.start_ts)}</td>
+      <td>${incidentsMode === "active" ? "ACTIVE" : fmtTs(row.end_ts)}</td>
+      <td>${Number(row.calls || 0)}</td>
+      <td>${fmtSec(row.airtime_sec || 0)}</td>
+      <td>${fmtSec(row.duration_sec || 0)}</td>`;
+    tr.style.cursor = "pointer";
+    tr.addEventListener("click", () => drawIncidentBurst(rows[idx]));
+    incidentsBody.appendChild(tr);
+  });
+
+  drawIncidentBurst(rows[0]);
+}
+
+async function fetchIncidents() {
+  const [compR, activeR] = await Promise.all([
+    fetch("/api/incidents", {cache: "no-store"}),
+    fetch("/api/incidents_active", {cache: "no-store"}),
+  ]);
+  const comp = await compR.json();
+  const act = await activeR.json();
+  if (comp.ok) incidentsCache.completed = Array.isArray(comp.incidents) ? comp.incidents : [];
+  if (act.ok) incidentsCache.active = Array.isArray(act.incidents) ? act.incidents : [];
+}
+
+function pollIncidents() {
+  clearInterval(incidentsPollInterval);
+  const run = async () => {
+    try {
+      await fetchIncidents();
+      renderIncidents();
+    } catch (e) {
+      if (incidentsSummary) incidentsSummary.textContent = "Incident data unavailable.";
+    }
+  };
+  run();
+  incidentsPollInterval = setInterval(run, 10000);
+}
+
+showIncidentsCompleted?.addEventListener("click", () => {
+  incidentsMode = "completed";
+  showIncidentsCompleted.classList.add("active");
+  showIncidentsActive.classList.remove("active");
+  renderIncidents();
+});
+
+showIncidentsActive?.addEventListener("click", () => {
+  incidentsMode = "active";
+  showIncidentsActive.classList.add("active");
+  showIncidentsCompleted.classList.remove("active");
+  renderIncidents();
+});
 
 // ===== Live recording =====
 // (Experimental: not yet wired to UI)

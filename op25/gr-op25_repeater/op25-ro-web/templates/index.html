@@ -98,6 +98,24 @@
         </div>
         <canvas id="statsCalls" height="220"></canvas>
         <canvas id="statsAirtime" height="220"></canvas>
+        <hr style="margin:14px 0;border-color:#2a2f3a;"/>
+        <div class="row between" style="margin-bottom:8px;">
+          <h3 style="margin:0;">Incidents</h3>
+          <div class="row" style="gap:6px;">
+            <button id="showIncidentsCompleted" class="btn active" type="button">Completed</button>
+            <button id="showIncidentsActive" class="btn" type="button">Active</button>
+          </div>
+        </div>
+        <div id="incidentsSummary" class="muted">No incidents logged yet.</div>
+        <div class="table-wrap" style="max-height:35vh; margin-top:8px;">
+          <table class="compact" id="incidentsTable">
+            <thead>
+              <tr><th>Label</th><th>TGIDs</th><th>Start</th><th>End</th><th>Calls</th><th>Airtime</th><th>Duration</th></tr>
+            </thead>
+            <tbody id="incidentsBody"></tbody>
+          </table>
+        </div>
+        <canvas id="incidentBurstChart" height="180"></canvas>
       </div>
     </section>
   </main>

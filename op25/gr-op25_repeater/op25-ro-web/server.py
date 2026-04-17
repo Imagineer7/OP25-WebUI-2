@@ -26,6 +26,20 @@ SHORT_HIST_LIMIT = 15
 
 STATS_TODAY_PATH = os.path.join(DATA_DIR, "stats_today.json")
 STATS_YEST_PATH  = os.path.join(DATA_DIR, "stats_yesterday.json")
+INCIDENTS_PATH   = os.path.join(DATA_DIR, "incidents.json")
+INCIDENTS_ACTIVE_PATH = os.path.join(DATA_DIR, "incidents_active.json")
+INCIDENTS_LIMIT  = int(os.getenv("INCIDENTS_LIMIT", "500"))
+
+# Rules for identifying incidents by TGID. Can be overridden with INCIDENT_RULES_JSON.
+DEFAULT_INCIDENT_RULES = [
+    {
+        "id": "ems_incident",
+        "label": "EMS Incident In Progress",
+        "tgids": ["14323"],
+        "quiet_minutes": 20,
+    }
+]
+INCIDENT_RULES_JSON = os.getenv("INCIDENT_RULES_JSON", "")
 
 # Optional OP25 tag sources for canonical TGID->name mappings.
 OP25_TG_TAGS_FILE = os.getenv("OP25_TG_TAGS_FILE", "")
@@ -352,6 +366,132 @@ def save_stats(path, stats):
     with open(path, "w") as f:
         json.dump(stats, f)
 
+def load_json_list(path):
+    if os.path.exists(path):
+        try:
+            data = json.load(open(path))
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    return []
+
+def save_json(path, obj):
+    with open(path, "w") as f:
+        json.dump(obj, f)
+
+def parse_incident_rules():
+    # Support dynamic rule config via env, fallback to defaults.
+    if INCIDENT_RULES_JSON:
+        try:
+            parsed = json.loads(INCIDENT_RULES_JSON)
+            if isinstance(parsed, list):
+                rules = []
+                for i, r in enumerate(parsed):
+                    if not isinstance(r, dict):
+                        continue
+                    rid = str(r.get("id") or f"incident_{i}").strip()
+                    label = str(r.get("label") or rid).strip()
+                    tgids = [str(t).strip() for t in (r.get("tgids") or []) if str(t).strip()]
+                    quiet = int(r.get("quiet_minutes") or 20)
+                    if rid and tgids:
+                        rules.append({
+                            "id": rid,
+                            "label": label,
+                            "tgids": tgids,
+                            "quiet_minutes": max(1, quiet),
+                        })
+                if rules:
+                    return rules
+        except Exception:
+            pass
+    return DEFAULT_INCIDENT_RULES
+
+incident_lock = threading.Lock()
+incident_rules = parse_incident_rules()
+incident_rule_map = {str(r.get("id", "")): r for r in incident_rules}
+incident_active = {}
+incident_history = load_json_list(INCIDENTS_PATH)
+
+def _bucket_call_for_incident(inc, call_ts):
+    start_ts = float(inc.get("start_ts") or call_ts)
+    bucket = int(max(0, (call_ts - start_ts) // 60))
+    cps = inc.get("calls_per_min")
+    if not isinstance(cps, dict):
+        cps = {}
+        inc["calls_per_min"] = cps
+    key = str(bucket)
+    cps[key] = int(cps.get(key, 0)) + 1
+
+def _upsert_incident_for_call(tgid, name, call_end_ts, duration_sec):
+    for rule in incident_rules:
+        if str(tgid) not in [str(x) for x in rule.get("tgids", [])]:
+            continue
+        rid = str(rule.get("id"))
+        inc = incident_active.get(rid)
+        if not inc:
+            inc = {
+                "id": rid,
+                "label": rule.get("label") or rid,
+                "tgids": [str(x) for x in rule.get("tgids", [])],
+                "start_ts": float(call_end_ts),
+                "last_seen_ts": float(call_end_ts),
+                "calls": 0,
+                "airtime_sec": 0.0,
+                "calls_per_min": {},
+                "sample_names": {},
+            }
+            incident_active[rid] = inc
+
+        inc["last_seen_ts"] = float(call_end_ts)
+        inc["calls"] = int(inc.get("calls", 0)) + 1
+        inc["airtime_sec"] = float(inc.get("airtime_sec", 0.0)) + float(max(0.0, duration_sec))
+        if tgid:
+            inc.setdefault("sample_names", {})[str(tgid)] = str(name or "")
+        _bucket_call_for_incident(inc, float(call_end_ts))
+
+def _snapshot_active_incidents(now_ts):
+    active = []
+    for rid, inc in incident_active.items():
+        row = dict(inc)
+        start_ts = float(row.get("start_ts") or now_ts)
+        row["duration_sec"] = max(0.0, float(now_ts) - start_ts)
+        row["status"] = "active"
+        active.append(row)
+    active.sort(key=lambda r: float(r.get("last_seen_ts", 0.0)), reverse=True)
+    return active
+
+def _finalize_quiet_incidents(now_ts):
+    finalized = []
+    for rid, inc in list(incident_active.items()):
+        rule = incident_rule_map.get(rid, {})
+        quiet_sec = int(rule.get("quiet_minutes", 20)) * 60
+        last_seen = float(inc.get("last_seen_ts") or now_ts)
+        if float(now_ts) - last_seen < quiet_sec:
+            continue
+
+        start_ts = float(inc.get("start_ts") or last_seen)
+        end_ts = last_seen
+        out = dict(inc)
+        out["status"] = "completed"
+        out["end_ts"] = end_ts
+        out["duration_sec"] = max(0.0, end_ts - start_ts)
+        cps = out.get("calls_per_min") or {}
+        out["calls_per_minute"] = [
+            {"minute": int(k), "calls": int(v)}
+            for k, v in sorted(cps.items(), key=lambda kv: int(kv[0]))
+        ]
+        finalized.append(out)
+        del incident_active[rid]
+
+    if finalized:
+        incident_history[0:0] = finalized
+        del incident_history[INCIDENTS_LIMIT:]
+
+    # Keep JSON files updated for frontend and external tooling.
+    save_json(INCIDENTS_PATH, incident_history)
+    save_json(INCIDENTS_ACTIVE_PATH, _snapshot_active_incidents(now_ts))
+
 def get_today_str():
     alaska = pytz.timezone("America/Anchorage")
     now_ak = datetime.datetime.now(alaska)
@@ -419,10 +559,23 @@ def poll_and_update_short_history_and_stats():
                     stats["tgids"][tgid]["count"] += 1
                     stats["tgids"][tgid]["airtime"] += duration
                     save_stats(STATS_TODAY_PATH, stats)
+
+                    # --- Incident tracking update ---
+                    with incident_lock:
+                        _upsert_incident_for_call(
+                            tgid=calltrack["call_start_details"].get("tgid", ""),
+                            name=calltrack["call_start_details"].get("name", ""),
+                            call_end_ts=float(call_end_ts),
+                            duration_sec=float(duration),
+                        )
                 calltrack["call_start_ts"] = None
                 calltrack["call_start_details"] = None
 
             calltrack["last_idle"] = idle
+
+            # Finalize incidents that have gone quiet long enough.
+            with incident_lock:
+                _finalize_quiet_incidents(float(ts or time.time()))
         except Exception:
             pass
         time.sleep(1)
@@ -448,6 +601,18 @@ def api_stats_today():
 def api_stats_yesterday():
     stats = load_stats(STATS_YEST_PATH)
     return jsonify({"ok": True, "stats": stats})
+
+@app.route("/api/incidents")
+def api_incidents():
+    with incident_lock:
+        data = list(incident_history)
+    return jsonify({"ok": True, "incidents": data})
+
+@app.route("/api/incidents_active")
+def api_incidents_active():
+    with incident_lock:
+        data = _snapshot_active_incidents(time.time())
+    return jsonify({"ok": True, "incidents": data})
 
 def _discover_tgid_tag_files():
     paths = []
