@@ -16,6 +16,7 @@ const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
 const MAX_ROWS = 200;                    // max rows kept in localStorage
 const LS_KEY = "scanner_history_v1";     // per-browser history key
+const LAST_SERVER_TS_KEY = "scanner_last_server_ts_v1"; // last merged server call timestamp
 const ALERT_SETTINGS_KEY = "scanner_alert_settings_v1";
 const ALERT_PROFILES_KEY = "scanner_alert_profiles_v1";
 const ALERT_ACTIVE_PROFILE_KEY = "scanner_alert_active_profile_v1";
@@ -1314,46 +1315,43 @@ async function mergeServerHistory() {
     const r = await fetch("/api/short_history", {cache: "no-store"});
     if (!r.ok) throw new Error("Failed to fetch server history");
     const js = await r.json();
-    if (!js.ok || !Array.isArray(js.history)) return;
+    if (!js.ok || !Array.isArray(js.history) || !js.history.length) return;
 
     const serverHist = js.history;
+
+    // Compare server-to-server timestamps (same clock) to avoid server vs browser clock skew.
+    // lastMergedServerTs tracks the newest server call we already merged into this browser.
+    const lastMergedServerTs = Number(localStorage.getItem(LAST_SERVER_TS_KEY) || "0");
+    const serverLatestTs = Date.parse(serverHist[0].time) || 0;
+
+    // Always update the stored server timestamp so future merges stay current
+    if (serverLatestTs > 0) {
+      localStorage.setItem(LAST_SERVER_TS_KEY, String(serverLatestTs));
+    }
+
+    // Nothing new since last merge
+    if (serverLatestTs <= lastMergedServerTs) return;
+
     let userHist = loadHist();
 
-    // Find latest timestamp in user history
-    const userLatestTs = userHist.length
-      ? Date.parse(userHist[0].time) || 0
-      : 0;
+    // Build exact-key set from user history to skip true duplicates
+    const userKeys = new Set(userHist.map(row =>
+      [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|")
+    ));
 
-    // Find latest timestamp in server history
-    const serverLatestTs = serverHist.length
-      ? Date.parse(serverHist[0].time) || 0
-      : 0;
+    // Add server calls newer than our last merge that aren't already present
+    const newRows = serverHist.filter(row => {
+      const key = [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|");
+      return !userKeys.has(key) && (Date.parse(row.time) || 0) > lastMergedServerTs;
+    });
 
-    // Only merge if server has newer calls
-    if (serverLatestTs > userLatestTs) {
-      // Build a set of unique keys for user history (e.g., time+tgid+name)
-      const userKeys = new Set(userHist.map(row =>
-        [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|")
-      ));
-
-      // Only add server calls that are not already in user history and are newer
-      const newRows = serverHist.filter(row => {
-        const key = [row.time, row.tgid, row.name, row.freq, row.source, row.enc].join("|");
-        // Optionally, you can also check duration if you want
-        return !userKeys.has(key) &&
-               (Date.parse(row.time) || 0) > userLatestTs;
-      });
-
-      if (newRows.length) {
-        // Prepend new rows to user history
-        userHist = [...newRows, ...userHist];
-        if (userHist.length > MAX_ROWS) userHist.length = MAX_ROWS;
-        saveHist(userHist);
-        renderHist(userHist);
-      }
+    if (newRows.length) {
+      userHist = [...newRows, ...userHist];
+      if (userHist.length > MAX_ROWS) userHist.length = MAX_ROWS;
+      saveHist(userHist);
+      renderHist(userHist);
     }
   } catch (e) {
-    // Ignore errors, fallback to local history only
     console.warn("History merge failed:", e);
   }
 }
